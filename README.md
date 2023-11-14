@@ -1,6 +1,11 @@
 # Building
 
-use following to create conda enviornment:
+If at Nevis, run the following:
+```
+conda activate /nevis/riverside/data/ms6556/NNGramsReco
+```
+
+use following to create conda enviornment if outside Nevis:
 ```
 name="NNGrams"
 file="env.yaml"
@@ -12,6 +17,6 @@ run
 ./config.sh
 ```
 
-to build GramsSim.
+to build GramsSim and SparseConvolutionNet package.
 
 
