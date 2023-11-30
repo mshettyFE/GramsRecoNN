@@ -6,4 +6,4 @@
 	url = https://github.com/facebookresearch/SparseConvNet.git
 [submodule "GramsSimSensitivity"]
 	path = GramsSimSensitivity
-	url = https://github.com/mshettyFE/GramsSimSensitivity.git
+	url = git@github.com:mshettyFE/GramsSimSensitivity.git
