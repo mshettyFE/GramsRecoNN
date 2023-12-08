@@ -4,6 +4,3 @@
 [submodule "SparseConvNet"]
 	path = SparseConvNet
 	url = https://github.com/facebookresearch/SparseConvNet.git
-[submodule "GramsSimSensitivity"]
-	path = GramsSimSensitivity
-	url = git@github.com:mshettyFE/GramsSimSensitivity.git

@@ -1,4 +1,7 @@
-[Pixel]
-    OutputName = "Test.hdf"
+[GenData]
+    Geometry = "cube" # Cube or flat
+    nparticles = 10000
+    InputDataName = "Input.hdf"
+    OutputDataName = "Output.hdf"
     PixelCountX = 10
     PixelCountY = 10
