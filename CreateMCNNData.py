@@ -1,5 +1,6 @@
 import toml
-import ROOT
+from ROOT import gROOT
+from ROOT import TFile
 import h5py
 import argparse
 import subprocess, shlex
@@ -7,9 +8,10 @@ import numpy as np
 
 import sys,os
 
-ROOT.gROOT.SetBatch(True)
+gROOT.SetBatch(True)
 
 class Position:
+# Given the MCTruth ROOT NTuple, convert to x,y,z coordinates to np.array for vector maths
     def __init__(self,MCTruthNTuple):
         self.pos = np.array([getattr(MCTruthNTuple,"x")[0], getattr(MCTruthNTuple,"y")[0], getattr(MCTruthNTuple,"z")[0]])
     def __repr__(self):
@@ -35,11 +37,13 @@ class Position:
         return self.pos.dot()
 
 class GramsG4Entry:
+# Encapsulates a single entry in the MCTruth of GramsG4
     def __init__(self, MCTruthNTuple):
         self.position = Position(MCTruthNTuple)
         self.time = getattr(MCTruthNTuple, "t")[0]
         self.process = getattr(MCTruthNTuple, "ProcessName")
         self.energy = getattr(MCTruthNTuple, "Etot")[0]
+        self.identifier = getattr(MCTruthNTuple,"identifier")[0]
     def __repr__(self):
         return self.__str__()
     def __str__(self):
@@ -48,6 +52,7 @@ class GramsG4Entry:
         output +="\t"+"Time: " +  str(self.time)+"\n"
         output +="\t"+"Process: " +  str(self.process)+"\n"
         output +="\t"+"Energy: " +  str(self.energy)+"\n"
+        output +="\t"+"ID: " +  str(self.identifier)+"\n"
         return output
     
     def emit_positions(self):
@@ -64,7 +69,7 @@ class ScatterSeries:
         count = 1
         output = ""
         for item  in self.scatter_series:
-            label = "Series "+str(count)+"\n"
+            label = "Hit "+str(count)+"\n"
             output += label
             output += item.__repr__()
             count += 1
@@ -74,6 +79,7 @@ class ScatterSeries:
         return len(self.scatter_series)
 
     def add(self,scatter):
+# Assumes that scatter is of type GramsG4Entry
         self.scatter_series.append(scatter)
 
     def sort(self):
@@ -86,9 +92,15 @@ class ScatterSeries:
         for scatter in self.scatter_series:
             if scatter.process not in valid_interactions:
                 return False
+# Check that all interactions (excluding the Primary) are inside the LAr. An interaction inside LAr starts with 1.
+# There are 7 digits in the identifier, so int(scatter.identifier/1000000) will specify what region in the detector the interaction took place in
+        for scatter in self.scatter_series[1:]:
+            if int(scatter.identifier/1000000)!=1:
+                return False
         return True
 
     def output_tuple(self):
+# Calculates the truth level energy and truth-level initial scattering angle (in radians)
         if(len(self.scatter_series) < 3):
             raise Exception("Scatter Series must be of at least length 3")
         self.sort()
@@ -98,16 +110,85 @@ class ScatterSeries:
         truth_angle = np.dot(photon_to_first, first_to_second)/(np.linalg.norm(photon_to_first)*np.linalg.norm(first_to_second))
         return (self.scatter_series[0].energy,truth_angle)
 
-def ConvertToHDF5(configuration, input_data, output_data):
-    # Do pixellation algorithm stuff here
-    pass
+def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
+# Returns the x and y index on the anode plane for a given xval,yval pair
+# Index (0,0) starts at bottom left. Both axes increase from left to right
+
+# Since GramsG4 has coordinate system placed at center of anode plane, we need an Offset in x and y to ensure all values are positive
+    xOffset = xDim/2.0
+    yOffset = yDim/2.0
+
+# Width of each bin
+    dx = xDim/PixelCountX
+    dy = yDim/PixelCountY
+# edge case where xval equals xOffset. Clamp to highest pixel in the file
+    if(xval==xOffset):
+        nx = PixelCountX-1
+    else:
+        nx = int((xval+xOffset)/dx)
+        if( (nx<0) or (nx>=PixelCountX)):
+            raise Exception("xval outside TPC. Maybe not filtering series correctly?")
+# Same for y
+    if(yval==yOffset):
+        ny = PixelCountY-1
+    else:
+        ny = int((yval+yOffset)/dy)
+        if( (ny<0) or (ny>=PixelCountY)):
+            raise Exception("yval outside TPC. Maybe not filtering series correctly?")
+    return (nx,ny)
+
+def initHDF5(configuration):
+    with h5py.File(configuration["GenData"]["OutputFileName"], "w") as f:
+# Meta data on total number of training data pairs
+        meta_data = f.create_group("meta")
+        meta_data.attrs["samples"] = 0
+
+def AddToHDF5(configuration, input_data, output_data, run):
+# Mass of electron in MeV. Need to subtract from each hit to get deposition energy
+    mass_e =  0.51099895
+    Geo = configuration["GenData"]["Geometry"].lower()
+    if (Geo == "cube"):
+        xDim = 70
+        yDim = 70
+    if (Geo == "flat"):
+        xDim = 140
+        yDim = 140
+    PixelCountX = int(configuration["GenData"]["PixelCountX"])
+    PixelCountY = int(configuration["GenData"]["PixelCountY"])
+    input_labels = np.zeros((len(input_data),PixelCountX, PixelCountY) )
+# 1 and 2 stands for a row vector with energy and reconstruction angle as columns
+    output_labels = np.zeros((len(input_data), 1, 2))
+    count = 0
+    for series in input_data:
+# Initialize empty anode plane with no depositions
+        anode_grid = np.zeros((PixelCountX,PixelCountY))
+# Drop photon from series, and skip series if only photon
+        LArHits = input_data[series].scatter_series[1:]
+        if(len(LArHits) ==0):
+            continue
+        for hit in LArHits:
+            anode_indices = pixellate(hit.position.pos[0],hit.position.pos[1],xDim,yDim, PixelCountX, PixelCountY)
+# Add energy of deposition to correct pixel
+            anode_grid[anode_indices[0], anode_indices[1]] += (hit.energy-mass_e)
+# At this point, have a 2D "image" of energy depositions. We get associate output data, and place data in big numpy array
+        input_labels[count,:,:] = anode_grid
+        output_labels[count,:,:] = output_data[series]
+# Checking that energies are what we expect (a mix of all in events, were energies are close to each other, and escape events, where energies are not close)
+#        agg = sum(sum(input_labels[count,:,:]))
+#        truth = output_labels[count,0,0]
+#        print(agg,truth, abs(agg-truth) )
+        count += 1
+    with h5py.File(configuration["GenData"]["OutputFileName"], "a") as f:
+# Meta data on total number of training data pairs
+        cur_data = f.create_group("Run:"+str(run))
+        cur_data.create_dataset("input_anode_images", data=input_labels)
+        cur_data.create_dataset("output_truth_labels", data=output_labels)
+        
 
 def ReadRoot(configuration, gramsg4_path):
-    GramsG4file = ROOT.TFile.Open ( gramsg4_path ," READ ")
+    GramsG4file = TFile.Open ( gramsg4_path ," READ ")
     mctruth = GramsG4file.Get("TrackInfo")
-    LArHits = GramsG4file.Get("LArHits")
     output_mctruth_series = {}
-    output_LAr_series = {}
     output_energy_angle = {}
     for entryNum in range (0 , mctruth.GetEntries()):
         mctruth.GetEntry( entryNum )
@@ -179,24 +260,61 @@ def GenData(configuration, rng_seed):
     print(command)
     subprocess.run(shlex.split(command))
     file_path = os.path.join(home,"GenData","Source_"+str(rng_seed)+".root")
+    os.chdir(home)
     return file_path
+
+def validate_positive_int(configuration, key):
+    try:
+        value = configuration["GenData"][key]
+    except:
+        print(key+" not found under GenData")
+        return False
+    try:
+        v = int(value)
+    except:
+        print(value+ " can't be interpreted as an integer")
+        return False
+    if(v<=0):
+        print(str(v)+" must be greater than 0")
+        return False
+    return True
+
+def validate_config(configuration):
+    try:
+        GenD = configuration["GenData"]
+    except:
+        print("GenData section missing")
+        return False
+    try:
+        Geo = GenD["Geometry"].lower()
+        Fname = GenD["OutputFileName"]
+    except:
+        print("Key is missing in GenData")
+        print("Current keys are:", GenD.keys())
+        return False
+    if ((Geo != "cube") and (Geo != "flat")):
+        print("Invalid Geometry")
+        return False
+    if(Fname == ""):
+        print("OutputFileName can't be empty")
+        return False
+    val_ints = validate_positive_int(configuration,"nparticles") and validate_positive_int(configuration,"nruns") and  validate_positive_int(configuration, "PixelCountX") and validate_positive_int(configuration, "PixelCountY")
+    if not val_ints:
+        return False
+    return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
-    parser.add_argument("rng",type=int,help="RNG seed to randomize simulation")
     args = parser.parse_args()
     try:
         GramsConfig = toml.load(args.GenDataTOML)
     except:
         print("Couldn't read"+ args.GenDataTOML)
         sys.exit()
-    gramsg4_file = GenData(GramsConfig, args.rng)
-    input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-
-#    with h5py.File(output_name, "a") as f:
-    # Meta data on total number of training data pairs
-#        meta_data = f.create_group("meta")
-#        meta_data.attrs["samples"] = len(Scatter_paths)
-#        inpt_labels = f.create_group("input")
-#        output_labels = f.create_group("output")
+    validate_config(GramsConfig)
+    initHDF5(GramsConfig)
+    for run in range(int(GramsConfig["GenData"]["nruns"])):
+        gramsg4_file = GenData(GramsConfig, run)
+        input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
+        AddToHDF5(GramsConfig, input_data, output_data,run)
