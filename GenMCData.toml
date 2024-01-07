@@ -1,7 +1,0 @@
-[GenData]
-    Geometry = "cube" # Cube or flat
-    nparticles = 1000
-    nruns = 2
-    OutputFileName = "Data.hdf"
-    PixelCountX = 10
-    PixelCountY = 10

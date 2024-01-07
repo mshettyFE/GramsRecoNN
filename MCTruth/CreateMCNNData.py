@@ -32,7 +32,6 @@ class Position:
 
     def norm(self):
         return self.pos.norm()
-    
     def dot(self):
         return self.pos.dot()
 
@@ -54,17 +53,14 @@ class GramsG4Entry:
         output +="\t"+"Energy: " +  str(self.energy)+"\n"
         output +="\t"+"ID: " +  str(self.identifier)+"\n"
         return output
-    
     def emit_positions(self):
         return self.position
-
     def emit_data(self):
         return (self.position, self.time, self.energy)
 
 class ScatterSeries:
     def __init__(self):
         self.scatter_series = []
-    
     def __repr__(self):
         count = 1
         output = ""
@@ -74,17 +70,13 @@ class ScatterSeries:
             output += item.__repr__()
             count += 1
         return output
-
     def __len__(self):
         return len(self.scatter_series)
-
     def add(self,scatter):
 # Assumes that scatter is of type GramsG4Entry
         self.scatter_series.append(scatter)
-
     def sort(self):
         self.scatter_series.sort(reverse=False, key= lambda scatter: scatter.time)
-
     def reconstructable(self):
         if(len(self.scatter_series) <3):
             return False
@@ -138,7 +130,7 @@ def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
     return (nx,ny)
 
 def initHDF5(configuration):
-    with h5py.File(configuration["GenData"]["OutputFileName"], "w") as f:
+    with h5py.File(configuration["GenData"]["OutputFileNamePath"], "w") as f:
 # Meta data on total number of training data pairs
         meta_data = f.create_group("meta")
         meta_data.attrs["samples"] = 0
@@ -178,12 +170,11 @@ def AddToHDF5(configuration, input_data, output_data, run):
 #        truth = output_labels[count,0,0]
 #        print(agg,truth, abs(agg-truth) )
         count += 1
-    with h5py.File(configuration["GenData"]["OutputFileName"], "a") as f:
+    with h5py.File(configuration["GenData"]["OutputFileNamePath"], "a") as f:
 # Meta data on total number of training data pairs
         cur_data = f.create_group("Run:"+str(run))
         cur_data.create_dataset("input_anode_images", data=input_labels)
         cur_data.create_dataset("output_truth_labels", data=output_labels)
-        
 
 def ReadRoot(configuration, gramsg4_path):
     GramsG4file = TFile.Open ( gramsg4_path ," READ ")
@@ -211,7 +202,8 @@ def ReadRoot(configuration, gramsg4_path):
     GramsG4file.Close()
     return output_mctruth_series, output_energy_angle
 
-def GenData(configuration, rng_seed):
+def GenData(configuration, home_dir, rng_seed):
+    os.chdir(home_dir)
     home = os.getcwd()
     os.chdir(os.path.join(home,"GenData"))
     # Create .mac file to process gramssky
@@ -287,10 +279,10 @@ def validate_config(configuration):
         return False
     try:
         Geo = GenD["Geometry"].lower()
-        Fname = GenD["OutputFileName"]
+        Fname = GenD["OutputFileNamePath"]
     except:
         print("Key is missing in GenData")
-        print("Current keys are:", GenD.keys())
+        print("Output path missing are:", GenD.keys())
         return False
     if ((Geo != "cube") and (Geo != "flat")):
         print("Invalid Geometry")
@@ -314,7 +306,10 @@ if __name__ == "__main__":
         sys.exit()
     validate_config(GramsConfig)
     initHDF5(GramsConfig)
+    os.chdir("..")
+    hm = os.getcwd()
     for run in range(int(GramsConfig["GenData"]["nruns"])):
-        gramsg4_file = GenData(GramsConfig, run)
+        gramsg4_file = GenData(GramsConfig, hm, run)
         input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
         AddToHDF5(GramsConfig, input_data, output_data,run)
+        os.remove(gramsg4_file)

@@ -1,0 +1,7 @@
+[GenData]
+    Geometry = "cube" # Cube or flat
+    nparticles = 1000
+    nruns = 3
+    OutputFileNamePath = "/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/Data.hdf"
+    PixelCountX = 10
+    PixelCountY = 10
