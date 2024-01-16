@@ -1,12 +1,13 @@
 import toml
 from ROOT import gROOT
 from ROOT import TFile
-import h5py
+from torch import from_numpy
+from safetensors.torch import save_file, safe_open
 import argparse
 import subprocess, shlex
 import numpy as np
 
-import sys,os
+import sys,os, random,time
 
 gROOT.SetBatch(True)
 
@@ -129,13 +130,7 @@ def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
             raise Exception("yval outside TPC. Maybe not filtering series correctly?")
     return (nx,ny)
 
-def initHDF5(configuration):
-    with h5py.File(configuration["GenData"]["OutputFileNamePath"], "w") as f:
-# Meta data on total number of training data pairs
-        meta_data = f.create_group("meta")
-        meta_data.attrs["samples"] = 0
-
-def AddToHDF5(configuration, input_data, output_data, run):
+def CreateTensor(configuration, input_data, output_data, run):
 # Mass of electron in MeV. Need to subtract from each hit to get deposition energy
     mass_e =  0.51099895
     Geo = configuration["GenData"]["Geometry"].lower()
@@ -170,11 +165,15 @@ def AddToHDF5(configuration, input_data, output_data, run):
 #        truth = output_labels[count,0,0]
 #        print(agg,truth, abs(agg-truth) )
         count += 1
-    with h5py.File(configuration["GenData"]["OutputFileNamePath"], "a") as f:
-# Meta data on total number of training data pairs
-        cur_data = f.create_group("Run:"+str(run))
-        cur_data.create_dataset("input_anode_images", data=input_labels)
-        cur_data.create_dataset("output_truth_labels", data=output_labels)
+    input_labels = from_numpy(input_labels)
+    output_labels = from_numpy(output_labels)
+    input_name = "input_anode_images_"+str(run)
+    output_name = "output_anode_images_"+str(run)
+    tensors = {
+        input_name: input_labels,
+        output_name: output_labels
+    }
+    return tensors
 
 def ReadRoot(configuration, gramsg4_path):
     GramsG4file = TFile.Open ( gramsg4_path ," READ ")
@@ -279,7 +278,8 @@ def validate_config(configuration):
         return False
     try:
         Geo = GenD["Geometry"].lower()
-        Fname = GenD["OutputFileNamePath"]
+        FolderPath = GenD["OutputFolderPath"]
+        FName = GenD["OutputFileBaseName"]
     except:
         print("Key is missing in GenData")
         print("Output path missing are:", GenD.keys())
@@ -287,29 +287,55 @@ def validate_config(configuration):
     if ((Geo != "cube") and (Geo != "flat")):
         print("Invalid Geometry")
         return False
-    if(Fname == ""):
-        print("OutputFileName can't be empty")
+    if(FName == ""):
+        print("OutputFileBaseName can't be empty")
         return False
-    val_ints = validate_positive_int(configuration,"nparticles") and validate_positive_int(configuration,"nruns") and  validate_positive_int(configuration, "PixelCountX") and validate_positive_int(configuration, "PixelCountY")
-    if not val_ints:
+    val_int = True
+    val_int = val_int and validate_positive_int(configuration,"nparticles")
+    val_int = val_int and validate_positive_int(configuration,"nruns")
+    val_int = val_int and validate_positive_int(configuration, "PixelCountX")
+    val_int = val_int and validate_positive_int(configuration, "PixelCountY")
+    val_int  = val_int and validate_positive_int(configuration, "BatchNo")
+    if not val_int:
         return False
+    if(FolderPath == ""):
+        print("OutputFolderPath can't be empty")
+        return False
+    else:
+        if not os.path.exists(FolderPath):
+            try:
+                os.mkdir(FolderPath)
+            except:
+                print("Couldn't create output folder")
+                return False
     return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
+    parser.add_argument('BatchNo',help="Condor Batch Job ID")
     args = parser.parse_args()
     try:
         GramsConfig = toml.load(args.GenDataTOML)
     except:
-        print("Couldn't read"+ args.GenDataTOML)
+        print("Couldn't read "+ args.GenDataTOML)
         sys.exit()
-    validate_config(GramsConfig)
-    initHDF5(GramsConfig)
+# Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
+    GramsConfig["GenData"]["BatchNo"] =  args.BatchNo
+    if not validate_config(GramsConfig):
+        print("Invalid configuration")
+        sys.exit(1)
+    random.seed(time.time())
     os.chdir("..")
     hm = os.getcwd()
-    for run in range(int(GramsConfig["GenData"]["nruns"])):
-        gramsg4_file = GenData(GramsConfig, hm, run)
+    output_tensor = {}
+    max_runs = int(GramsConfig["GenData"]["nruns"])
+    for run in range(max_runs):
+# Randomly seed the simulation
+        rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"])+run
+        gramsg4_file = GenData(GramsConfig, hm, rng_seed )
         input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-        AddToHDF5(GramsConfig, input_data, output_data,run)
+        output_tensor.update(CreateTensor(GramsConfig, input_data, output_data,run))
         os.remove(gramsg4_file)
+    fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"],GramsConfig["GenData"]["OutputFileBaseName"]+"_"+str(GramsConfig["GenData"]["BatchNo"])+".safetensors")
+    save_file(output_tensor,fname)
