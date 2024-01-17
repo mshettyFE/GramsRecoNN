@@ -2,7 +2,7 @@ import toml
 from ROOT import gROOT
 from ROOT import TFile
 from torch import from_numpy
-from safetensors.torch import save_file, safe_open
+from safetensors.torch import save_file
 import argparse
 import subprocess, shlex
 import numpy as np
@@ -91,17 +91,25 @@ class ScatterSeries:
             if int(scatter.identifier/1000000)!=1:
                 return False
         return True
+    def escape_type(self):
+        self.sort()
+# If the last interaction was not a photoabsorbtion, then the photon escaped the detector
+        if self.scatter_series[-1].process != "phot":
+# 1 denotes that the series escaped
+            return 1
+# 0 denotes that all the series was recorded
+        return 0
 
     def output_tuple(self):
 # Calculates the truth level energy and truth-level initial scattering angle (in radians)
         if(len(self.scatter_series) < 3):
             raise Exception("Scatter Series must be of at least length 3")
-        self.sort()
+        e_type = self.escape_type()
         truth_angle = 0.0
         photon_to_first = self.scatter_series[0].position - self.scatter_series[1].position
         first_to_second = self.scatter_series[1].position - self.scatter_series[2].position
         truth_angle = np.dot(photon_to_first, first_to_second)/(np.linalg.norm(photon_to_first)*np.linalg.norm(first_to_second))
-        return (self.scatter_series[0].energy,truth_angle)
+        return (self.scatter_series[0].energy,truth_angle,e_type)
 
 def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
 # Returns the x and y index on the anode plane for a given xval,yval pair
@@ -144,7 +152,7 @@ def CreateTensor(configuration, input_data, output_data, run):
     PixelCountY = int(configuration["GenData"]["PixelCountY"])
     input_labels = np.zeros((len(input_data),PixelCountX, PixelCountY) )
 # 1 and 2 stands for a row vector with energy and reconstruction angle as columns
-    output_labels = np.zeros((len(input_data), 1, 2))
+    output_labels = np.zeros((len(input_data), 1, 3))
     count = 0
     for series in input_data:
 # Initialize empty anode plane with no depositions
@@ -167,8 +175,8 @@ def CreateTensor(configuration, input_data, output_data, run):
         count += 1
     input_labels = from_numpy(input_labels)
     output_labels = from_numpy(output_labels)
-    input_name = "input_anode_images_"+str(run)
-    output_name = "output_anode_images_"+str(run)
+    input_name = "input_anode_images_"+str(run)+"_"
+    output_name = "output_anode_images_"+str(run)+"_"
     tensors = {
         input_name: input_labels,
         output_name: output_labels
@@ -176,7 +184,7 @@ def CreateTensor(configuration, input_data, output_data, run):
     return tensors
 
 def ReadRoot(configuration, gramsg4_path):
-    GramsG4file = TFile.Open ( gramsg4_path ," READ ")
+    GramsG4file = TFile.Open ( gramsg4_path ,"READ")
     mctruth = GramsG4file.Get("TrackInfo")
     output_mctruth_series = {}
     output_energy_angle = {}
@@ -330,12 +338,18 @@ if __name__ == "__main__":
     hm = os.getcwd()
     output_tensor = {}
     max_runs = int(GramsConfig["GenData"]["nruns"])
+    meta = {}
     for run in range(max_runs):
 # Randomly seed the simulation
         rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"])+run
         gramsg4_file = GenData(GramsConfig, hm, rng_seed )
         input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-        output_tensor.update(CreateTensor(GramsConfig, input_data, output_data,run))
+        new = CreateTensor(GramsConfig, input_data, output_data,run)
+        output_tensor.update(new)
+# Add to meta data on how many images were generated in each run for a given batch
+        for k in new.keys():
+            meta[str(run)] = str(new[k].shape[0])
+            break
         os.remove(gramsg4_file)
     fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"],GramsConfig["GenData"]["OutputFileBaseName"]+"_"+str(GramsConfig["GenData"]["BatchNo"])+".safetensors")
-    save_file(output_tensor,fname)
+    save_file(output_tensor,fname, metadata=meta)
