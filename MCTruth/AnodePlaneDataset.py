@@ -1,8 +1,6 @@
-import os,sys
-import torch
+import os
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
-import numpy as np
 from safetensors.torch import safe_open
 
 def extract_safetensor_paths(folder_name):
@@ -83,5 +81,5 @@ class AnodePlaneDataset(Dataset):
         
 
 if __name__ == "__main__":
-    a = AnodePlaneDataset(os.getcwd())
-    a.plot(0)
+    train_dataloader = DataLoader(AnodePlaneDataset(os.getcwd()), batch_size=5, shuffle=True)
+    train_features, train_labels = next(iter(train_dataloader))

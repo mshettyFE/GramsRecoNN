@@ -1,8 +1,15 @@
 [GenData]
     Geometry = "cube" # Cube or flat
-    nparticles = 1000
-    nruns = 2
-    OutputFolderPath = "/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth"
-    OutputFileBaseName = "Data"
+    nparticles = 10000
+    nruns = 100
+    OutputFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
+    OutputFileBaseName = "AnodeImagesTrain"
     PixelCountX = 10
     PixelCountY = 10
+[TrainData]
+    BaseTrainName = "AnodeImagesTrain"
+    InputTrainingFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
+    BaseValidationName = "AnodeImagesVal"
+    InputValidationFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
+    BaseTestName = "AnodeImagesTest"
+    InputTestFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"

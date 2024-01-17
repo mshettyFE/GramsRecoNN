@@ -1,3 +1,4 @@
 /GenData
 *.hdf
 *.safetensors
+nohup.out
