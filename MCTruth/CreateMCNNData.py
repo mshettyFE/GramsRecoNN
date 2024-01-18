@@ -274,9 +274,26 @@ def validate_positive_int(configuration, key):
         print(value+ " can't be interpreted as an integer")
         return False
     if(v<=0):
+        print(str(v)+" must be strictly greater than 0")
+        return False
+    return True
+
+def validate_not_negative(configuration, key):
+    try:
+        value = configuration["GenData"][key]
+    except:
+        print(key+" not found under GenData")
+        return False
+    try:
+        v = int(value)
+    except:
+        print(value+ " can't be interpreted as an integer")
+        return False
+    if(v<0):
         print(str(v)+" must be greater than 0")
         return False
     return True
+
 
 def validate_config(configuration):
     try:
@@ -303,7 +320,7 @@ def validate_config(configuration):
     val_int = val_int and validate_positive_int(configuration,"nruns")
     val_int = val_int and validate_positive_int(configuration, "PixelCountX")
     val_int = val_int and validate_positive_int(configuration, "PixelCountY")
-    val_int  = val_int and validate_positive_int(configuration, "BatchNo")
+    val_int  = val_int and validate_not_negative(configuration, "BatchNo")
     if not val_int:
         return False
     if(FolderPath == ""):

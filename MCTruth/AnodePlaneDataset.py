@@ -1,6 +1,8 @@
 import os
+import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
+import numpy as np
 from safetensors.torch import safe_open
 
 def extract_safetensor_paths(folder_name):
@@ -79,7 +81,32 @@ class AnodePlaneDataset(Dataset):
         plt.title(title)
         plt.show()
         
-
+def truth_level_class_pics(anodeDataset,verbose = True, plot=True, display_escape = True):
+    total = len(anodeDataset)
+    AllIn = torch.zeros(anodeDataset[0][0].shape)
+    Escape = torch.zeros(anodeDataset[0][0].shape)
+    for i in range(total):
+        if verbose:
+            if(i%1000 ==0):
+                print(i,total)
+        inpt, output = anodeDataset[i]
+        if int(output[0,2]) == 0:
+            AllIn += inpt
+        else:
+            Escape += inpt
+    if display_escape:
+        plt.pcolormesh(Escape)
+        plt.title("Agg. energy deps (Escape)")
+    else:
+        plt.pcolormesh(AllIn)
+        plt.title("Agg. energy deps (AllIN)")
+    plt.colorbar()
+    plt.xlabel("X Pixel")
+    plt.ylabel("Y Pixel")
+    if(plot):
+        plt.show()
+    return (AllIn, Escape)
 if __name__ == "__main__":
-    train_dataloader = DataLoader(AnodePlaneDataset(os.getcwd()), batch_size=5, shuffle=True)
-    train_features, train_labels = next(iter(train_dataloader))
+    batch_size = 100
+    ad = AnodePlaneDataset("/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train")
+    truth_level_class_pics(ad,True, True, False)

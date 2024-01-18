@@ -2,3 +2,4 @@
 *.hdf
 *.safetensors
 nohup.out
+__pycache__

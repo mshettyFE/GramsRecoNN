@@ -2,8 +2,8 @@
     Geometry = "cube" # Cube or flat
     nparticles = 10000
     nruns = 100
-    OutputFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
-    OutputFileBaseName = "AnodeImagesTrain"
+    OutputFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
+    OutputFileBaseName = "AnodeImagesVal"
     PixelCountX = 10
     PixelCountY = 10
 [TrainData]
