@@ -272,7 +272,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     sanity_checker = TomlSanityCheck(args.GenDataTOML)
 # Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
-    sanity_checker.config_file["GenData"]["BatchNo"]=  {"value": int(args.BatchNo),  "constraint":"Pos"}
+    sanity_checker.config_file["GenData"]["BatchNo"]=  {"value": int(args.BatchNo),  "constraint":"PosInt"}
     try:
         sanity_checker.validate()
     except Exception as e:

@@ -47,10 +47,14 @@ class TomlSanityCheck:
                 match constraint_name:
                     case "NonEmptyString":
                         constraint = NonEmptyString(val)
-                    case "SPos":
-                        constraint = StrictPositive(val)
-                    case "Pos":
-                        constraint = Positive(val)
+                    case "SPosInt":
+                        constraint = StrictPositiveInt(val)
+                    case "PosInt":
+                        constraint = PositiveInt(val)
+                    case "SPosFloat":
+                        constraint = StrictPositiveFloat(val)
+                    case "PosFloat":
+                        constraint = PositiveFloat(val)
                     case "ValidFolder":
                         constraint = ValidFolder(val)
                     case "DetectorGeometry":
@@ -87,22 +91,52 @@ class NonEmptyString(TOMLParameterConstraint):
             return False
         return True
 
-class StrictPositive(TOMLParameterConstraint):
+class StrictPositiveInt(TOMLParameterConstraint):
 # Checks for non-empty string as value
     def __init__(self, parameter_value):
-        super(StrictPositive, self).__init__(parameter_value)
+        super(StrictPositiveInt, self).__init__(parameter_value)
     def validate(self):
+        if not isinstance(self.value,int):
+            return False
         try:
             ge = (self.value > 0)
         except:
             return False
         return ge
 
-class Positive(TOMLParameterConstraint):
+class PositiveInt(TOMLParameterConstraint):
 # Checks for non-empty string as value
     def __init__(self, parameter_value):
-        super(Positive, self).__init__(parameter_value)
+        super(PositiveInt, self).__init__(parameter_value)
     def validate(self):
+        if not isinstance(self.value,int):
+            return False
+        try:
+            ge = (self.value >= 0)
+        except:
+            return False
+        return ge
+
+class StrictPositiveFloat(TOMLParameterConstraint):
+# Checks for non-empty string as value
+    def __init__(self, parameter_value):
+        super(StrictPositiveFloat, self).__init__(parameter_value)
+    def validate(self):
+        if not isinstance(self.value,float):
+            return False
+        try:
+            ge = (self.value > 0)
+        except:
+            return False
+        return ge
+
+class PositiveFloat(TOMLParameterConstraint):
+# Checks for non-empty string as value
+    def __init__(self, parameter_value):
+        super(PositiveFloat, self).__init__(parameter_value)
+    def validate(self):
+        if not isinstance(self.value,float):
+            return False
         try:
             ge = (self.value >= 0)
         except:

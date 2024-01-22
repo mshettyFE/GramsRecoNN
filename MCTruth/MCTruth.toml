@@ -17,18 +17,27 @@
     constraint = "DetectorGeometry"
 [GenData.nparticles]
     value = 10000
-    constraint = "SPos"
+    constraint = "SPosInt"
 [GenData.nruns]
     value = 100
-    constraint = "SPos"
+    constraint = "SPosInt"
 [GenData.PixelCountX]
     value = 10
-    constraint = "SPos"
+    constraint = "SPosInt"
 [GenData.PixelCountY]
     value = 10
-    constraint = "SPos"
+    constraint = "SPosInt"
 
 # TrainData
+[TrainData.LearningRate]
+    value = 1e-3
+    constraint =  "SPosFloat"
+[TrainData.BatchSize]
+    value = 32
+    constraint =  "SPosInt"
+[TrainData.EpochNum]
+    value = 10
+    constraint =  "SPosInt"
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
     constraint = "ValidFolder"
