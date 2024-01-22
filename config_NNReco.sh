@@ -1,13 +1,13 @@
 #!/bin/bash
 git submodule init
 git submodule update
-rm -rf GenData
-mkdir GenData
+rm -rf GramsSimWork
+mkdir GramsSimWork
 if [ $? -ne 0 ]
 then
   exit
 fi
-cd GenData
+cd GramsSimWork
 cmake ../GramsSim
 make
 #cd ../SparseConvNet

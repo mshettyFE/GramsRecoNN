@@ -4,6 +4,13 @@ from torch.utils.data import DataLoader
 from AnodePlaneDataset import AnodePlaneDataset
 import matplotlib.pyplot as plt
 
+import sys
+import argparse
+
+sys.path.append('..')
+from  TomlSanityCheck import TomlSanityCheck
+
+
 class SimpleNN(nn.Module):
     def __init__(self, PixelCountX, PixelCountY):
         super().__init__()
@@ -30,9 +37,43 @@ if __name__ == "__main__":
         if torch.backends.mps.is_available()
         else "cpu"
     )
-    print(device)
-    model = SimpleNN(10,10).to(device)
-    print(model)
+    parser = argparse.ArgumentParser(prog='TrainNet')
+    parser.add_argument('TOML',help="Path to .toml config file")
+    args = parser.parse_args()
+    sanity_checker = TomlSanityCheck(args.TOML)
+    try:
+        sanity_checker.validate()
+    except Exception as e:
+        print(e)
+        sys.exit()
+    parameters=  sanity_checker.return_config()
+    learning_rate = float(parameters["TrainData"]["LearningRate"]["value"])
+    PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
+    PixelCountY = int(parameters["GenData"]["PixelCountY"]["value"])
+    model = SimpleNN(PixelCountX,PixelCountY).to(device)
+    opt = torch.optim.Adam(model.parameters(),  lr=learning_rate)
+    loss = nn.NLLLoss()
+    train_data = AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"])
+    val_data = AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"])
+    test_data = AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"])
 ## TODO
-    # Set Learning Rate, Batch size, and Epoch number in .toml file
-    # Read in Training, Validation, and Test Data via DataLoader
+    # Set Learning Rate, Batch size, and Epoch number in .toml file (DONE)
+    # Read in Training, Validation, and Test Data via DataLoader (DONE)
+    # Select proper Optimizer and Loss function for task (DONE)
+    # Set up data cache to store training results as they happen
+    # For each epoch:
+        # Turn on training mode
+        # Loop over all the training data in that epoch
+            # Send data to correct device
+            # perform forward propagation, then calculate loss function
+            # zero out gradients, do backpropagation, then update weights with opt.step()
+            # Add loss data to data cache
+        # Once done with training data, evaulate on validation data
+            # turn of gradient calcs
+            # set model to eval mode
+            # loop over validation data
+            # do forward pass and calculate the loss function/ correct classification
+            # Save to data cache
+    # Do Validation step on test data once all epochs are done
+    # Do plotting stuff
+    # Save model to disk vis torch.save()

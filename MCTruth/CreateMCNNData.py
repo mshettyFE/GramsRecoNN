@@ -215,7 +215,7 @@ def ReadRoot(configuration, gramsg4_path):
 def GenData(configuration, home_dir, rng_seed):
     os.chdir(home_dir)
     home = os.getcwd()
-    os.chdir(os.path.join(home,"GenData"))
+    os.chdir(os.path.join(home,"GramsSimWork"))
     # Create .mac file to process gramssky
     nparticles = configuration["GenData"]["nparticles"]["value"]
     temp_mac_loc = os.path.join(home,"GenData","mac","temp.mac")

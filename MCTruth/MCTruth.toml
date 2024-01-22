@@ -41,18 +41,9 @@
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
     constraint = "ValidFolder"
-[TrainData.BaseTrainName]
-    value = "AnodeImagesTrain"
-    constraint = "NonEmptyString"
 [TrainData.InputValidationFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
     constraint = "ValidFolder"
-[TrainData.BaseValidationName]
-    value = "AnodeImagesVal"
-    constraint = "NonEmptyString"
 [TrainData.InputTestFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
     constraint = "ValidFolder"
-[TrainData.BaseTestName]
-    value = "AnodeImagesTest"
-    constraint = "NonEmptyString"
