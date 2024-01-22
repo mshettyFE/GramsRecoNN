@@ -1,15 +1,49 @@
-[GenData]
-    Geometry = "cube" # Cube or flat
-    nparticles = 10000
-    nruns = 100
-    OutputFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
-    OutputFileBaseName = "AnodeImagesVal"
-    PixelCountX = 10
-    PixelCountY = 10
-[TrainData]
-    BaseTrainName = "AnodeImagesTrain"
-    InputTrainingFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
-    BaseValidationName = "AnodeImagesVal"
-    InputValidationFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
-    BaseTestName = "AnodeImagesTest"
-    InputTestFolderPath = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+# File formatted as follows:
+
+# Each parameter is formatted like: [XXX.YYY] where XXX refers to the group of the parameter and YYY refers to the name
+# Each parameter has exactly two key:value pairs.
+#   The first is the actual value of the parameter (a path, a number, a string etc.)
+#   The second is the sanity check/constraint on the parameter. See TomlSanityCheck.py for a current list of supported constraints
+
+# GenData
+[GenData.OutputFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+    constraint = "ValidFolder"
+[GenData.OutputFileBaseName]
+    value = "AnodeImagesTest"
+    constraint = "NonEmptyString"
+[GenData.Geometry]
+    value = "cube"
+    constraint = "DetectorGeometry"
+[GenData.nparticles]
+    value = 10000
+    constraint = "SPos"
+[GenData.nruns]
+    value = 100
+    constraint = "SPos"
+[GenData.PixelCountX]
+    value = 10
+    constraint = "SPos"
+[GenData.PixelCountY]
+    value = 10
+    constraint = "SPos"
+
+# TrainData
+[TrainData.InputTrainingFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
+    constraint = "ValidFolder"
+[TrainData.BaseTrainName]
+    value = "AnodeImagesTrain"
+    constraint = "NonEmptyString"
+[TrainData.InputValidationFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
+    constraint = "ValidFolder"
+[TrainData.BaseValidationName]
+    value = "AnodeImagesVal"
+    constraint = "NonEmptyString"
+[TrainData.InputTestFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+    constraint = "ValidFolder"
+[TrainData.BaseTestName]
+    value = "AnodeImagesTest"
+    constraint = "NonEmptyString"
