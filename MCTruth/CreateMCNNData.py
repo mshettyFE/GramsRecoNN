@@ -9,6 +9,9 @@ import numpy as np
 
 import sys,os, random,time
 
+sys.path.append('..')
+from  TomlSanityCheck import TomlSanityCheck
+
 gROOT.SetBatch(True)
 
 class Position:
@@ -141,15 +144,15 @@ def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
 def CreateTensor(configuration, input_data, output_data, run):
 # Mass of electron in MeV. Need to subtract from each hit to get deposition energy
     mass_e =  0.51099895
-    Geo = configuration["GenData"]["Geometry"].lower()
+    Geo = configuration["GenData"]["Geometry"]["value"].lower()
     if (Geo == "cube"):
         xDim = 70
         yDim = 70
     if (Geo == "flat"):
         xDim = 140
         yDim = 140
-    PixelCountX = int(configuration["GenData"]["PixelCountX"])
-    PixelCountY = int(configuration["GenData"]["PixelCountY"])
+    PixelCountX = int(configuration["GenData"]["PixelCountX"]["value"])
+    PixelCountY = int(configuration["GenData"]["PixelCountY"]["value"])
     input_labels = np.zeros((len(input_data),PixelCountX, PixelCountY) )
 # 1 and 2 stands for a row vector with energy and reconstruction angle as columns
     output_labels = np.zeros((len(input_data), 1, 3))
@@ -214,12 +217,12 @@ def GenData(configuration, home_dir, rng_seed):
     home = os.getcwd()
     os.chdir(os.path.join(home,"GenData"))
     # Create .mac file to process gramssky
-    nparticles = configuration["GenData"]["nparticles"]
+    nparticles = configuration["GenData"]["nparticles"]["value"]
     temp_mac_loc = os.path.join(home,"GenData","mac","temp.mac")
     with open(temp_mac_loc,'w') as f:
         f.write("/run/initialize\n")
         f.write("/run/beamOn "+str(nparticles)+"\n")
-    Geo = configuration["GenData"]["Geometry"]
+    Geo = configuration["GenData"]["Geometry"]["value"]
     ## Gramssky part
     values = ["./gramssky", "-o","Events.hepmc3", "--RadiusSphere", "300"]
     values += ["--RadiusDisc", "100"]
@@ -262,103 +265,29 @@ def GenData(configuration, home_dir, rng_seed):
     os.chdir(home)
     return file_path
 
-def validate_positive_int(configuration, key):
-    try:
-        value = configuration["GenData"][key]
-    except:
-        print(key+" not found under GenData")
-        return False
-    try:
-        v = int(value)
-    except:
-        print(value+ " can't be interpreted as an integer")
-        return False
-    if(v<=0):
-        print(str(v)+" must be strictly greater than 0")
-        return False
-    return True
-
-def validate_not_negative(configuration, key):
-    try:
-        value = configuration["GenData"][key]
-    except:
-        print(key+" not found under GenData")
-        return False
-    try:
-        v = int(value)
-    except:
-        print(value+ " can't be interpreted as an integer")
-        return False
-    if(v<0):
-        print(str(v)+" must be greater than 0")
-        return False
-    return True
-
-
-def validate_config(configuration):
-    try:
-        GenD = configuration["GenData"]
-    except:
-        print("GenData section missing")
-        return False
-    try:
-        Geo = GenD["Geometry"].lower()
-        FolderPath = GenD["OutputFolderPath"]
-        FName = GenD["OutputFileBaseName"]
-    except:
-        print("Key is missing in GenData")
-        print("Output path missing are:", GenD.keys())
-        return False
-    if ((Geo != "cube") and (Geo != "flat")):
-        print("Invalid Geometry")
-        return False
-    if(FName == ""):
-        print("OutputFileBaseName can't be empty")
-        return False
-    val_int = True
-    val_int = val_int and validate_positive_int(configuration,"nparticles")
-    val_int = val_int and validate_positive_int(configuration,"nruns")
-    val_int = val_int and validate_positive_int(configuration, "PixelCountX")
-    val_int = val_int and validate_positive_int(configuration, "PixelCountY")
-    val_int  = val_int and validate_not_negative(configuration, "BatchNo")
-    if not val_int:
-        return False
-    if(FolderPath == ""):
-        print("OutputFolderPath can't be empty")
-        return False
-    else:
-        if not os.path.exists(FolderPath):
-            try:
-                os.mkdir(FolderPath)
-            except:
-                print("Couldn't create output folder")
-                return False
-    return True
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
     parser.add_argument('BatchNo',help="Condor Batch Job ID")
     args = parser.parse_args()
-    try:
-        GramsConfig = toml.load(args.GenDataTOML)
-    except:
-        print("Couldn't read "+ args.GenDataTOML)
-        sys.exit()
+    sanity_checker = TomlSanityCheck(args.GenDataTOML)
 # Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
-    GramsConfig["GenData"]["BatchNo"] =  args.BatchNo
-    if not validate_config(GramsConfig):
-        print("Invalid configuration")
-        sys.exit(1)
+    sanity_checker.config_file["GenData"]["BatchNo"]=  {"value": int(args.BatchNo),  "constraint":"Pos"}
+    try:
+        sanity_checker.validate()
+    except Exception as e:
+        print(e)
+        sys.exit()
+    GramsConfig = sanity_checker.return_config()
     random.seed(time.time())
     os.chdir("..")
     hm = os.getcwd()
     output_tensor = {}
-    max_runs = int(GramsConfig["GenData"]["nruns"])
+    max_runs = int(GramsConfig["GenData"]["nruns"]["value"])
     meta = {}
     for run in range(max_runs):
-# Randomly seed the simulation
-        rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"])+run
+# Properly seed the simulation RNG
+        rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"]["value"])+run
         gramsg4_file = GenData(GramsConfig, hm, rng_seed )
         input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
         new = CreateTensor(GramsConfig, input_data, output_data,run)
@@ -368,5 +297,5 @@ if __name__ == "__main__":
             meta[str(run)] = str(new[k].shape[0])
             break
         os.remove(gramsg4_file)
-    fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"],GramsConfig["GenData"]["OutputFileBaseName"]+"_"+str(GramsConfig["GenData"]["BatchNo"])+".safetensors")
+    fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["BatchNo"]["value"])+".safetensors")
     save_file(output_tensor,fname, metadata=meta)

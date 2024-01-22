@@ -6,6 +6,7 @@ import numpy as np
 from safetensors.torch import safe_open
 
 def extract_safetensor_paths(folder_name):
+# helper function to get paths to all .safetensors files in a folder
     if not os.path.exists(folder_name):
         raise Exception("Invalid folder")
     for file in os.listdir(folder_name):
@@ -14,11 +15,17 @@ def extract_safetensor_paths(folder_name):
                 yield os.path.join(folder_name,file)
 
 class AnodePlaneDataset(Dataset):
-    def __init__(self,dataset_folder, verbose = False):
+    def __init__(self,dataset_folder, verbose = False, max_files=None):
+# dataset_folder (filepath): a folder consisting entirely of .safetensor files. Need 3 seperate folders for Test, Train, and Validation
+# verbose (bool): print out stuff
+# max_files (positive int): set a limit on the number of files to read. Used to select the first N files in a folder
+
+# prefixes for tensor names in .safetensors file
         self.input_preappend = "input_anode_images"
         self.output_preappend = "output_anode_images"
 # mapping between global index to relavent data to pull correct tensor (batch_filepath, input_key, output_key,  event_id)
         self.index_mapping = {}
+# identifier for each event in each run in each file
         global_index = 0
 # For each .safetensors file in the folder
         for fpath in extract_safetensor_paths(dataset_folder):
@@ -33,6 +40,10 @@ class AnodePlaneDataset(Dataset):
                     raise Exception("Uneven number of keys. Number of input and output images don't match")
 # For each run, check if input/output name is present in the keys. If they aren't throw
                 for run_id in range(total_runs):
+                    if max_files:
+# If max_files is set, check if the current file number is greater than or equal to max_files.
+                        if(run_id >= max_files):
+                            break
                     input_name = self.input_preappend+"_"+str(run_id)+"_"
                     output_name = self.output_preappend+"_"+str(run_id)+"_"
                     if input_name in key_names:
@@ -72,6 +83,7 @@ class AnodePlaneDataset(Dataset):
             output_data = f.get_tensor(target_output)[target_event,:,:]
         return (input_data, output_data)
     def plot(self,index):
+# Plot an input anode plane image
         data = self.__getitem__(index)
         plt.pcolormesh(data[0])
         plt.colorbar()
@@ -80,8 +92,9 @@ class AnodePlaneDataset(Dataset):
         title = "Init. E: "+str(round(TotalE,3))+" Rec. E: "+str(round(RecordedE,3))
         plt.title(title)
         plt.show()
-        
+
 def truth_level_class_pics(anodeDataset,verbose = True, plot=True, display_escape = True):
+# Aggregate all events into a single image, sorted by class (one for "All In", on for "Escape"
     total = len(anodeDataset)
     AllIn = torch.zeros(anodeDataset[0][0].shape)
     Escape = torch.zeros(anodeDataset[0][0].shape)
@@ -106,6 +119,7 @@ def truth_level_class_pics(anodeDataset,verbose = True, plot=True, display_escap
     if(plot):
         plt.show()
     return (AllIn, Escape)
+
 if __name__ == "__main__":
     batch_size = 100
     ad = AnodePlaneDataset("/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train")

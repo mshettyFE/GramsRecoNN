@@ -2,7 +2,7 @@ import toml
 import os
 from abc import ABC, abstractmethod
 
-class SanityCheckToml:
+class TomlSanityCheck:
     def __init__(self, file_path, verbose = False):
         try:
             self.config_file = toml.load(file_path)
@@ -49,6 +49,8 @@ class SanityCheckToml:
                         constraint = NonEmptyString(val)
                     case "SPos":
                         constraint = StrictPositive(val)
+                    case "Pos":
+                        constraint = Positive(val)
                     case "ValidFolder":
                         constraint = ValidFolder(val)
                     case "DetectorGeometry":
@@ -61,6 +63,9 @@ class SanityCheckToml:
                     err_msg = "parameter '"+str(parameter)+"' with value '"+str(val)+"'"
                     err_msg += " doesn't satisfy constraint '"+str(constraint_name)+"'"
                     raise Exception(err_msg)
+
+    def return_config(self):
+        return self.config_file
 
 # Abstract base class from which all other constraints are derived from
 class TOMLParameterConstraint(ABC):
@@ -93,6 +98,17 @@ class StrictPositive(TOMLParameterConstraint):
             return False
         return ge
 
+class Positive(TOMLParameterConstraint):
+# Checks for non-empty string as value
+    def __init__(self, parameter_value):
+        super(Positive, self).__init__(parameter_value)
+    def validate(self):
+        try:
+            ge = (self.value >= 0)
+        except:
+            return False
+        return ge
+
 class ValidFolder(TOMLParameterConstraint):
 # Checks for non-empty string as value
     def __init__(self, parameter_value):
@@ -115,5 +131,5 @@ class DetectorGeometry(TOMLParameterConstraint):
 
 if __name__ =="__main__":
     base = os.getcwd()
-    s = SanityCheckToml(os.path.join(base,"MCTruth","MCTruth.toml"))
+    s = TomlSanityCheck(os.path.join(base,"MCTruth","MCTruth.toml"))
     s.validate()
