@@ -45,6 +45,8 @@ class TomlSanityCheck:
                 constraint_name = section[parameter]["constraint"]
                 constraint = None
                 match constraint_name:
+                    case "None":
+                        constraint = NoConstraint(val)
                     case "NonEmptyString":
                         constraint = NonEmptyString(val)
                     case "SPosInt":
@@ -79,6 +81,13 @@ class TOMLParameterConstraint(ABC):
     @abstractmethod
     def validate(self):
         pass
+
+class NoConstraint(TOMLParameterConstraint):
+# Checks for non-empty string as value
+    def __init__(self, parameter_value):
+        super(NonEmptyString, self).__init__(parameter_value)
+    def validate(self):
+        return True
 
 class NonEmptyString(TOMLParameterConstraint):
 # Checks for non-empty string as value
