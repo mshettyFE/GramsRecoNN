@@ -70,15 +70,61 @@ class History:
         print(self.training_accuracy_history)
         print(self.validation_accuracy_history)
 
+    def plot(self, which="loss"):
+        match which:
+            case "loss":
+                pass
+            case "acc":
+                pass
+            case _:
+                raise Exception("which must be either 'loss' or 'acc'")
+
+@dataclass
+class HyperParameters:
+    learning_rate: float
+    batch_size: int
+    epoch_num: int
+
+class Trainer:
+    def __init__(self, parameters,optimizer, loss_func):
+        self.device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
+        self.args = HyperParameters(
+            float(parameters["TrainData"]["LearningRate"]["value"]),
+                                    int(parameters["TrainData"]["BatchSize"]["value"]),
+                                    int(parameters["TrainData"]["EpochNum"]["value"])
+        )                           
+        PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
+        PixelCountY = int(parameters["GenData"]["PixelCountY"]["value"])
+        self.model = SimpleNN(PixelCountX,PixelCountY).to(self.device)
+        self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate)
+        self.loss = loss_func
+        self.train_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"]),
+                                 batch_size=self.args.batch_size, shuffle=True)
+        self.val_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"]),
+                              batch_size=self.args.batch_size, shuffle=False)
+        self.test_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"]),
+                               batch_size=self.args.batch_size, shuffle=False)
+        self.training_history = History()
+
+    def evaulate(self, which="validation"):
+        match which:
+            case "validation":
+                pass
+            case "test":
+                pass
+            case _:
+                raise Exception("which argument is neither 'validation' nor 'test'")
+## For validation set, update history
+## For test set, don't update history
+        pass
 
 if __name__ == "__main__":
-    device = (
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps"
-        if torch.backends.mps.is_available()
-        else "cpu"
-    )
     parser = argparse.ArgumentParser(prog='TrainNet')
     parser.add_argument('TOML',help="Path to .toml config file")
     args = parser.parse_args()
@@ -88,20 +134,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
         sys.exit()
-    parameters=  sanity_checker.return_config()
-    learning_rate = float(parameters["TrainData"]["LearningRate"]["value"])
-    PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
-    PixelCountY = int(parameters["GenData"]["PixelCountY"]["value"])
-    model = SimpleNN(PixelCountX,PixelCountY).to(device)
-    opt = torch.optim.Adam(model.parameters(),  lr=learning_rate)
-    loss = nn.NLLLoss()
-    train_data = AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"])
-    val_data = AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"])
-    test_data = AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"])
-    a = History()
-    a.add_loss(10.1,23.5)
-    a.add_accuracy(.1,.5)
-    a.print()
+    paras=  sanity_checker.return_config()
+    trainer = Trainer(paras, torch.optim.Adam, nn.NLLLoss)
 ## TODO
     # Set Learning Rate, Batch size, and Epoch number in .toml file (DONE)
     # Read in Training, Validation, and Test Data via DataLoader (DONE)
