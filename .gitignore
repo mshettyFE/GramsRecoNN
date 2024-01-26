@@ -1,5 +1,7 @@
 /GramsSimWork
 *.hdf
+*.png
+*.csv
 *.safetensors
 nohup.out
 __pycache__

@@ -27,16 +27,19 @@
 [GenData.PixelCountY]
     value = 10
     constraint = "SPosInt"
+[GenData.ModelFile]
+    value = "Model.safetensors"
+    constraint = "NonEmptyString"
 
 # TrainData
 [TrainData.LearningRate]
     value = 1e-3
     constraint =  "SPosFloat"
 [TrainData.BatchSize]
-    value = 32
+    value = 128
     constraint =  "SPosInt"
 [TrainData.EpochNum]
-    value = 10
+    value = 2
     constraint =  "SPosInt"
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
