@@ -5,9 +5,11 @@ from AnodePlaneDataset import AnodePlaneDataset
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
 from safetensors.torch import save_model, load_model
 
-import sys
+import sys, itertools
 import argparse
 
 from dataclasses import dataclass, field
@@ -144,6 +146,33 @@ class Trainer:
         self.test_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"], max_files=max_f),
                                batch_size=self.args.batch_size, shuffle=False)
         self.training_history = History()
+    
+    def predict_all(self, which_data="val", which_target="class"):
+        data = None
+        match which_data:
+            case "val":
+                data = self.val_data
+            case "test":
+                data = self.test_data
+            case _:
+                raise Exception("Invalid Dataloader")
+        predictions = []
+        truth_level = []
+        self.model.eval()
+        with torch.no_grad():
+            for i, batch in enumerate(data):
+                inpt, lbls = batch
+                truth_labels = None
+                match which_target:
+                    case "class":
+                        truth_labels = lbls[:,:,2]
+                    case _:
+                        raise Exception("Undefined loss target")
+                voutputs = self.model(inpt).round()
+                for i in range(truth_labels.shape[0]):
+                    truth_level.append(truth_labels[i][0])
+                    predictions.append(voutputs[i][0])
+        return (truth_level, predictions)                   
 
     def fit(self, logging=True):
 # Fit the model to the data
@@ -195,6 +224,39 @@ class Trainer:
     def load_model(self, filename: str):
         load_model(self.model, filename)
 
+class Plotter:
+    def __init__(self):
+        self.cmap = plt.get_cmap('GnBu')
+    def plot_confusion_mat(self, predictions, truth, class_names = None,
+        title="Confusion matrix", normalize=False, save=True):
+        cm = confusion_matrix(truth,predictions)
+        plt.figure(figsize=(8, 6))
+        plt.imshow(cm, interpolation="nearest", cmap=self.cmap, vmin=0, vmax=1)
+        plt.title(title)
+        plt.colorbar()
+
+        if class_names is not None:
+            tick_marks = np.arange(len(class_names))
+            plt.xticks(tick_marks, class_names, rotation=45, fontsize=15)
+            plt.yticks(tick_marks, class_names,fontsize=15)
+
+        if normalize:
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+# Add percentage/count to center of each cell in confusion matrix, choosing color for better visibility
+        thresh = cm.max() / 1.5 if normalize else cm.max() / 2
+        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+            if normalize:
+                plt.text(j, i, "{:0.3f}".format(cm[i, j]),
+                    horizontalalignment="center", fontsize=15,
+                    color="white" if cm[i, j] > thresh else "black")
+            else:
+                plt.text(j, i, "{:,}".format(cm[i, j]),
+                    horizontalalignment="center",
+                    color="white" if cm[i, j] > thresh else "black")
+
+        plt.tight_layout()
+        plt.ylabel('True label', fontsize=15)
+        plt.xlabel('Predicted label', fontsize=15)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='TrainNet')
@@ -207,9 +269,16 @@ if __name__ == "__main__":
         print(e)
         sys.exit()
     paras=  sanity_checker.return_config()
-    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss,1)
+    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss)
+    temp_plotter = Plotter()
+    truth, pred = trainer.predict_all()
+    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
+    plt.savefig("ConfMatPrior.png")
     trainer.fit()
     trainer.training_history.dump()
     trainer.training_history.plot("loss")
     trainer.training_history.plot("acc")
+    truth, pred = trainer.predict_all()
+    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
+    plt.savefig("ConfMatPost.png")
     trainer.save_model(paras["GenData"]["ModelFile"]["value"])
