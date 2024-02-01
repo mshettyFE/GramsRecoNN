@@ -80,7 +80,8 @@ class History:
                 f.write(",".join([str(x) for x in [self.acc_epoch_count[i], self.validation_accuracy_history[i]]])+"\n")
 
     def plot(self, which="loss"):
-# saves .pngs of either losses or accuracy 
+# saves .pngs of either losses or accuracy
+        plt.close()
         match which:
             case "loss":
                 x = np.array(self.loss_epoch_count)
@@ -172,7 +173,7 @@ class Trainer:
                 for i in range(truth_labels.shape[0]):
                     truth_level.append(truth_labels[i][0])
                     predictions.append(voutputs[i][0])
-        return (truth_level, predictions)                   
+        return (truth_level, predictions)
 
     def fit(self, logging=True):
 # Fit the model to the data
@@ -227,6 +228,13 @@ class Trainer:
 class Plotter:
     def __init__(self):
         self.cmap = plt.get_cmap('GnBu')
+    def plot_confusion_mat_scipy(self,predictions,truth, title):
+      cm = confusion_matrix(truth,predictions)
+      disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+      disp.plot()
+      plt.title(title)
+      plt.savefig(title+".png")
+      plt.close()
     def plot_confusion_mat(self, predictions, truth, class_names = None,
         title="Confusion matrix", normalize=False, save=True):
         cm = confusion_matrix(truth,predictions)
@@ -269,16 +277,16 @@ if __name__ == "__main__":
         print(e)
         sys.exit()
     paras=  sanity_checker.return_config()
-    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss)
+    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss,5)
     temp_plotter = Plotter()
     truth, pred = trainer.predict_all()
-    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
-    plt.savefig("ConfMatPrior.png")
+#    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
+    temp_plotter.plot_confusion_mat_scipy(pred, truth, "Prior to Training")
     trainer.fit()
     trainer.training_history.dump()
     trainer.training_history.plot("loss")
     trainer.training_history.plot("acc")
     truth, pred = trainer.predict_all()
-    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
-    plt.savefig("ConfMatPost.png")
+#    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
+    temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
     trainer.save_model(paras["GenData"]["ModelFile"]["value"])

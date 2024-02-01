@@ -39,7 +39,7 @@
     value = 128
     constraint =  "SPosInt"
 [TrainData.EpochNum]
-    value = 2
+    value = 5
     constraint =  "SPosInt"
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
