@@ -6,6 +6,12 @@
 #   The second is the sanity check/constraint on the parameter. See TomlSanityCheck.py for a current list of supported constraints
 
 # GenData
+## Condor stuff
+[GenData.NBatches]
+    value = 100
+    constraint = "SPosInt"
+
+## Data generation stuff
 [GenData.OutputFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
     constraint = "ValidFolder"
@@ -35,7 +41,7 @@
 [TrainData.LearningRate]
     value = 1e-3
     constraint =  "SPosFloat"
-[TrainData.BatchSize]
+[TrainData.NNBatchSize]
     value = 128
     constraint =  "SPosInt"
 [TrainData.EpochNum]

@@ -61,6 +61,8 @@ class TomlSanityCheck:
                         constraint = ValidFolder(val)
                     case "DetectorGeometry":
                         constraint = DetectorGeometry(val)
+                    case "Boolean":
+                        constraint = BooleanCheck(val)
                 if not constraint:
                     err_msg = "Constraint '"+constraint_name + "' is currently not defined."
                     err_msg += " Did you create a inherited class, and add the constraint to the above match statement?"
@@ -171,6 +173,15 @@ class DetectorGeometry(TOMLParameterConstraint):
         if lowered not in valid_geometries:
             return False
         return True
+
+class BooleanCheck(TOMLParameterConstraint):
+# Checks for non-empty string as value
+    def __init__(self, parameter_value):
+        super(BooleanCheck, self).__init__(parameter_value)
+    def validate(self):
+        if isinstance(self.value,bool):
+            return True
+        return False
 
 if __name__ =="__main__":
     base = os.getcwd()

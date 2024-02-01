@@ -3,5 +3,8 @@
 *.png
 *.csv
 *.safetensors
+*.cmd
+*.sh
+!LocalBatchGen.sh
 nohup.out
 __pycache__

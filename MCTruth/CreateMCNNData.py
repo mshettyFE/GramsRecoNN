@@ -268,11 +268,13 @@ def GenData(configuration, home_dir, rng_seed):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
-    parser.add_argument('BatchNo',help="Condor Batch Job ID")
+    parser.add_argument("-b", '--BatchNo', help="Batch Job ID", type=int, default = 0)
+    parser.add_argument("-c",'--GenCondor',help="Weather to generate condor files", default = False)
     args = parser.parse_args()
     sanity_checker = TomlSanityCheck(args.GenDataTOML)
 # Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
     sanity_checker.config_file["GenData"]["BatchNo"]=  {"value": int(args.BatchNo),  "constraint":"PosInt"}
+    sanity_checker.config_file["GenData"]["GenCondor"]=  {"value": bool(args.GenCondor),  "constraint":"Boolean"}
     try:
         sanity_checker.validate()
     except Exception as e:

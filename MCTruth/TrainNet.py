@@ -127,7 +127,7 @@ class Trainer:
 # Cast Hyperparameters to the appropriate values
         self.args = HyperParameters(
             float(parameters["TrainData"]["LearningRate"]["value"]),
-                                    int(parameters["TrainData"]["BatchSize"]["value"]),
+                                    int(parameters["TrainData"]["NNBatchSize"]["value"]),
                                     int(parameters["TrainData"]["EpochNum"]["value"])
         )
 # Create Net and send to proper device
