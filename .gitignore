@@ -5,6 +5,7 @@
 *.safetensors
 *.cmd
 *.sh
+*.tar.gz
 !LocalBatchGen.sh
 nohup.out
 __pycache__

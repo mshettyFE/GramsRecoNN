@@ -265,6 +265,47 @@ def GenData(configuration, home_dir, rng_seed):
     os.chdir(home)
     return file_path
 
+def GenCondorFiles(config):
+    base = os.getcwd()
+    shell_file_loc = os.path.join(base,"BatchGenData.sh")
+    cmd_file_loc = os.path.join(base,"BatchGenData.cmd")
+    python_script_loc = os.path.join(base, sys.argv[0])
+    toml_file_loc = os.path.join(base,sys.argv[1])
+    tar_file_name = "GramsSimWork.tar.gz"
+    os.chdir("..")
+    hm  = os.getcwd()
+    tar_file_loc = os.path.join(hm, tar_file_name)
+    file_to_tar = os.path.join(hm,"GramsSimWork")
+    with open(shell_file_loc,'w') as f:
+        f.write("#!/bin/bash -l\n")
+        f.write("conda activate /nevis/riverside/share/ms6556/conda/envs/GramsDev\n")
+        f.write("process=$1\n")
+        f.write("tar -xzf "+tar_file_name +"\n")
+        f.write("mkdir temp\n")
+        f.write("mv "+str(sys.argv[0])+ " temp\n")
+        f.write("mv "+str(sys.argv[1])+ " temp\n")
+        f.write('chdir temp\n')
+        python_cmd = "python " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
+        f.write(python_cmd)
+    values = ["tar", "-cvzf",tar_file_name,"GramsSimWork"]
+    command = " ".join([str(v) for v in values])
+    print(command)
+    subprocess.run(shlex.split(command))
+    with open(cmd_file_loc,"w") as f:
+        f.write("executable = "+shell_file_loc+"\n")
+        f.write("transfer_input_files = "+tar_file_loc+" , "+ python_script_loc + " , " + toml_file_loc+"\n")
+        f.write("arguments = $(Process)\n")
+        f.write("initialdir = "+ config["GenData"]["OutputFolderPath"]["value"]+"\n")
+        f.write("universe = vanilla\n")
+        f.write("should_transfer_files = YES\n")
+        f.write("when_to_transfer_files = ON_EXIT\n")
+        f.write("requirements =  ( Arch == \"X86_64\" )\n")
+        f.write("output = temp-$(Process).out\n")
+        f.write("error = temp-$(Process).err\n")
+        f.write("log = temp-$(Process).log\n")
+        f.write("notification = Never\n")
+        f.write("queue "+ str(config["GenData"]["NBatches"]["value"]))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
@@ -281,23 +322,26 @@ if __name__ == "__main__":
         print(e)
         sys.exit()
     GramsConfig = sanity_checker.return_config()
-    random.seed(time.time())
-    os.chdir("..")
-    hm = os.getcwd()
-    output_tensor = {}
-    max_runs = int(GramsConfig["GenData"]["nruns"]["value"])
-    meta = {}
-    for run in range(max_runs):
-# Properly seed the simulation RNG
-        rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"]["value"])+run
-        gramsg4_file = GenData(GramsConfig, hm, rng_seed )
-        input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-        new = CreateTensor(GramsConfig, input_data, output_data,run)
-        output_tensor.update(new)
-# Add to meta data on how many images were generated in each run for a given batch
-        for k in new.keys():
-            meta[str(run)] = str(new[k].shape[0])
-            break
-        os.remove(gramsg4_file)
-    fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["BatchNo"]["value"])+".safetensors")
-    save_file(output_tensor,fname, metadata=meta)
+    if(GramsConfig["GenData"]["GenCondor"]):
+        GenCondorFiles(GramsConfig)
+    else:
+        os.chdir("..")
+        hm = os.getcwd()
+        random.seed(time.time())
+        output_tensor = {}
+        max_runs = int(GramsConfig["GenData"]["nruns"]["value"])
+        meta = {}
+        for run in range(max_runs):
+    # Properly seed the simulation RNG
+            rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"]["value"])+run
+            gramsg4_file = GenData(GramsConfig, hm, rng_seed )
+            input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
+            new = CreateTensor(GramsConfig, input_data, output_data,run)
+            output_tensor.update(new)
+    # Add to meta data on how many images were generated in each run for a given batch
+            for k in new.keys():
+                meta[str(run)] = str(new[k].shape[0])
+                break
+            os.remove(gramsg4_file)
+        fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["BatchNo"]["value"])+".safetensors")
+        save_file(output_tensor,fname, metadata=meta)
