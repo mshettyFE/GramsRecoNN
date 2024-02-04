@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import KFold
 
 from safetensors.torch import save_model, load_model
 
@@ -290,3 +291,6 @@ if __name__ == "__main__":
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
     temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
     trainer.save_model(paras["GenData"]["ModelFile"]["value"])
+
+## TODO
+# K-Cross fold validation
