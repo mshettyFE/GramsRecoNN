@@ -153,7 +153,8 @@ def CreateTensor(configuration, input_data, output_data, run):
         yDim = 140
     PixelCountX = int(configuration["GenData"]["PixelCountX"]["value"])
     PixelCountY = int(configuration["GenData"]["PixelCountY"]["value"])
-    input_labels = np.zeros((len(input_data),PixelCountX, PixelCountY) )
+# 1 stands for number of channels (needed to be compatible with 2D conv layers)
+    input_labels = np.zeros((len(input_data),1,PixelCountX, PixelCountY) )
 # 1 and 2 stands for a row vector with energy and reconstruction angle as columns
     output_labels = np.zeros((len(input_data), 1, 3))
     count = 0
@@ -169,10 +170,10 @@ def CreateTensor(configuration, input_data, output_data, run):
 # Add energy of deposition to correct pixel
             anode_grid[anode_indices[0], anode_indices[1]] += (hit.energy-mass_e)
 # At this point, have a 2D "image" of energy depositions. We get associate output data, and place data in big numpy array
-        input_labels[count,:,:] = anode_grid
+        input_labels[count,0,:,:] = anode_grid
         output_labels[count,:,:] = output_data[series]
 # Checking that energies are what we expect (a mix of all in events, were energies are close to each other, and escape events, where energies are not close)
-#        agg = sum(sum(input_labels[count,:,:]))
+#        agg = sum(sum(input_labels[count,1,:,:]))
 #        truth = output_labels[count,0,0]
 #        print(agg,truth, abs(agg-truth) )
         count += 1
@@ -218,7 +219,7 @@ def GenData(configuration, home_dir, rng_seed):
     os.chdir(os.path.join(home,"GramsSimWork"))
     # Create .mac file to process gramssky
     nparticles = configuration["GenData"]["nparticles"]["value"]
-    temp_mac_loc = os.path.join(home,"GenData","mac","temp.mac")
+    temp_mac_loc = os.path.join(home,"GramsSimWork","mac","temp.mac")
     with open(temp_mac_loc,'w') as f:
         f.write("/run/initialize\n")
         f.write("/run/beamOn "+str(nparticles)+"\n")
@@ -261,7 +262,7 @@ def GenData(configuration, home_dir, rng_seed):
     command = " ".join([str(v) for v in values])
     print(command)
     subprocess.run(shlex.split(command))
-    file_path = os.path.join(home,"GenData","Source_"+str(rng_seed)+".root")
+    file_path = os.path.join(home,"GramsSimWork","Source_"+str(rng_seed)+".root")
     os.chdir(home)
     return file_path
 
@@ -287,9 +288,8 @@ def GenCondorFiles(config):
         f.write('chdir temp\n')
         python_cmd = "python " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
         f.write(python_cmd)
-    values = ["tar", "-cvzf",tar_file_name,"GramsSimWork"]
+    values = ["tar", "-czf",tar_file_name,"GramsSimWork"]
     command = " ".join([str(v) for v in values])
-    print(command)
     subprocess.run(shlex.split(command))
     with open(cmd_file_loc,"w") as f:
         f.write("executable = "+shell_file_loc+"\n")
@@ -298,7 +298,7 @@ def GenCondorFiles(config):
         f.write("initialdir = "+ config["GenData"]["OutputFolderPath"]["value"]+"\n")
         f.write("universe = vanilla\n")
         f.write("should_transfer_files = YES\n")
-        f.write("when_to_transfer_files = ON_EXIT\n")
+        f.write("when_to_transfer_output = ON_EXIT\n")
         f.write("requirements =  ( Arch == \"X86_64\" )\n")
         f.write("output = temp-$(Process).out\n")
         f.write("error = temp-$(Process).err\n")
@@ -310,19 +310,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
     parser.add_argument("-b", '--BatchNo', help="Batch Job ID", type=int, default = 0)
-    parser.add_argument("-c",'--GenCondor',help="Weather to generate condor files", default = False)
+    parser.add_argument("-c",'--GenCondor',help="Weather to generate condor files",action='store_true')
     args = parser.parse_args()
     sanity_checker = TomlSanityCheck(args.GenDataTOML)
 # Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
     sanity_checker.config_file["GenData"]["BatchNo"]=  {"value": int(args.BatchNo),  "constraint":"PosInt"}
-    sanity_checker.config_file["GenData"]["GenCondor"]=  {"value": bool(args.GenCondor),  "constraint":"Boolean"}
+    sanity_checker.config_file["GenData"]["GenCondor"]=  {"value": args.GenCondor,  "constraint":"Boolean"}
     try:
         sanity_checker.validate()
     except Exception as e:
         print(e)
         sys.exit()
     GramsConfig = sanity_checker.return_config()
-    if(GramsConfig["GenData"]["GenCondor"]):
+    if(GramsConfig["GenData"]["GenCondor"]["value"]):
         GenCondorFiles(GramsConfig)
     else:
         os.chdir("..")
