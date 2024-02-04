@@ -8,7 +8,7 @@
 # GenData
 ## Condor stuff
 [GenData.NBatches]
-    value = 100
+    value = 2
     constraint = "SPosInt"
 
 ## Data generation stuff
@@ -25,17 +25,14 @@
     value = 10000
     constraint = "SPosInt"
 [GenData.nruns]
-    value = 100
+    value = 2
     constraint = "SPosInt"
 [GenData.PixelCountX]
-    value = 10
+    value = 30
     constraint = "SPosInt"
 [GenData.PixelCountY]
-    value = 10
+    value = 30
     constraint = "SPosInt"
-[GenData.ModelFile]
-    value = "Model.safetensors"
-    constraint = "NonEmptyString"
 
 # TrainData
 [TrainData.LearningRate]
@@ -49,9 +46,6 @@
     constraint =  "SPosInt"
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
-    constraint = "ValidFolder"
-[TrainData.InputValidationFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
     constraint = "ValidFolder"
 [TrainData.InputTestFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
