@@ -8,16 +8,16 @@ conda activate /nevis/riverside/data/ms6556/conda/envs/GramsDev
 use following to create conda enviornment if outside Nevis:
 ```
 name="GramsDev"
-file="enviornment.yaml"
-conda create -c conda-forge --name $name --file $file
+file="enviornment.yml"
+conda env update --name $name --file $file
 ```
 
-run 
+run
 ```
 ./config.sh
 ```
 
-to build GramsSim and SparseConvolutionNet package.
+in base repo directory to build GramsSim and SparseConvolutionNet package.
 
 
 # Running
