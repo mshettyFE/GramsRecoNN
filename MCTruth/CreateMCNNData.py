@@ -224,60 +224,97 @@ def CreateTensor(configuration, input_data, output_data, run):
     return tensors
 
 def ReadRoot(configuration, gramsg4_path):
-    print("Entering")
-    print(gramsg4_path)
-    print(os.path.exists(gramsg4_path))
+    if (configuration["GenData"]["Debug"]["value"]):
+    # See if gramsg4_path is valid
+        print("Entering")
+        print(gramsg4_path)
+        print(os.path.exists(gramsg4_path))
+    # Open up root file
     GramsG4file = TFile.Open ( gramsg4_path ,"READ")
-    print("Read ROOT File")
+    if (configuration["GenData"]["Debug"]["value"]):
+    # Finished reading root file
+        print("Read ROOT File")
+    # Get TrackInfo tuple containing MCTruth data
     mctruth = GramsG4file.Get("TrackInfo")
-    output_mctruth_series = {}
+    mctruth_series = {}
     output_energy_angle = {}
-    print("Pulling Data")
+    if (configuration["GenData"]["Debug"]["value"]):
+    # Start reading entries
+        print("Pulling Data")
     nentries = mctruth.GetEntries()
     for entryNum in range (0 , nentries):
-        print(entryNum, nentries)
+        if (configuration["GenData"]["Debug"]["value"]):
+            print(entryNum, nentries)
         mctruth.GetEntry( entryNum )
         dict_key = (getattr(mctruth, "Run"), getattr(mctruth, "Event"))
+# Pack MCTruth info into Entry object, then pack all associated Entry object into a ScatterSeries object
         scatter = GramsG4Entry(mctruth)
-        if dict_key in output_mctruth_series:
-            output_mctruth_series[dict_key].add(scatter)
+# Checking if Run/Event key is present. If not, add, then add new ScatterSeries object
+        if dict_key in mctruth_series:
+            mctruth_series[dict_key].add(scatter)
         else:
             s = ScatterSeries()
             s.add(scatter)
-            output_mctruth_series[dict_key] = s
-    keys = list(output_mctruth_series.keys())
-    print("Classifying Data")
-    for key in keys:
-        if not (output_mctruth_series[key].reconstructable()):
-            del output_mctruth_series[key]
-    keys = list(output_mctruth_series.keys())
-    print("Formatting Data")
-    for key in keys:
+            mctruth_series[dict_key] = s
+    if (configuration["GenData"]["Debug"]["value"]):
+        print("Classifying Data")
+    # Grab all the keys (ie. all the scatter series), and check if they are reconstructable. If they are, store in an seperate dictionary
+    all_keys = list(mctruth_series.keys())
+    output_mctruth_series = {}
+    for key in all_keys:
+        if mctruth_series[key].reconstructable():
+            output_mctruth_series[key] = mctruth_series[key]
+    if (configuration["GenData"]["Debug"]["value"]):
+        print("Formatting Data")
+    # Extract the necessary information from the reconstructable series and return that
+    output_keys = list(output_mctruth_series.keys())
+    for key in output_keys:
         output_tuple = output_mctruth_series[key].output_tuple()
         output_energy_angle[key] = output_tuple
-    print("Closing File")
+    # Clean up
+    if (configuration["GenData"]["Debug"]["value"]):
+        print("Closing File")
+    if (configuration["GenData"]["Debug"]["value"]):
+        print("Exiting")
     GramsG4file.Close()
-    print("Exiting")
     return output_mctruth_series, output_energy_angle
 
 def GenData(configuration, home_dir, rng_seed):
+# Calls GramsSim executables to generate raw .root outputs, and then parses output to extract Compton Series
+# To call an external executable, you do the following:
+# 1. Create a list of command line arguments that you would typically pass to
+# 2. Join the arguments such that there is one space between each argument (called command)
+# 3. Run subprocess.run(shlex.split(command)). Don't know why you need shlex (Assuming some formatting stuff that the " ".join() doesn't do).
+# In any case, you do the above for each external script you want to run. For MCTruth, we have GramsSky-> GramsG4
+# For the final version, we would expect gramssky -> gramsg4 ->gramsdetsim -> gramsRecoSim -> gramsElecSim
     os.chdir(home_dir)
     home = os.getcwd()
-    os.chdir(os.path.join(home,"GramsSimWork"))
-    # Create .mac file to process gramssky
+    GramsSimLoc = os.path.join(home,"GramsSimWork")
+    gramssky_loc = os.path.join(GramsSimLoc,"gramssky")
+    gramsg4_loc = os.path.join(GramsSimLoc,"gramsg4")
+    if not os.path.exists(gramssky_loc):
+        raise Exception("Invalid GramsSim location")
+    if not os.path.exists(gramsg4_loc):
+        raise Exception("Invalid GramsSim location")
+    os.chdir(GramsSimLoc)
+    # Create temp.mac file to process gramssky output
     nparticles = configuration["GenData"]["nparticles"]["value"]
     temp_mac_loc = os.path.join(home,"GramsSimWork","mac","temp.mac")
+    # This file effectively just reads in the output of GramsSky
     with open(temp_mac_loc,'w') as f:
         f.write("/run/initialize\n")
         f.write("/run/beamOn "+str(nparticles)+"\n")
     Geo = configuration["GenData"]["Geometry"]["value"]
-    ## Gramssky part
+    ## Gramssky part. See https://github.com/wgseligman/GramsSim/tree/master/GramsSky or ./gramssky -h for info on what the arguments are
     values = ["./gramssky", "-o","Events.hepmc3", "--RadiusSphere", "300"]
     values += ["--RadiusDisc", "100"]
     values += ["--PositionGeneration", "Iso", "-n", nparticles]
+    # Generate across the entire sky
     values += ["--ThetaMinMax", "\"(-1.571, 1.571)\""]
     values += ["--PhiMinMax", "\"(0,6.283)\""]
+    # Seed simulation with rng
     values += ["-s", str(rng_seed),"-r", str(rng_seed)]
+    # Place origin depending on gmdl geometry
     if (Geo=="cube"):
         OriginSphere = "\"(0,0,-40.0)\""
     elif(Geo=="flat"):
@@ -285,14 +322,16 @@ def GenData(configuration, home_dir, rng_seed):
     else:
         print("Unknown geometry")
         sys.exit()
+    # Generate energies in a uniform distribution ranging from 0.1 to 10 MeV
     values += ["--OriginSphere", OriginSphere, "--EnergyGeneration", "Flat"]
     values += ["--EnergyMin", "0.1"]
     values += ["--EnergyMax", "10"]
     values += ["\n"]
+    # Join all arguments, then run
     command = " ".join([str(v) for v in values])
     print(command)
     subprocess.run(shlex.split(command))
-    # GramsG4
+    # GramsG4. See https://github.com/wgseligman/GramsSim/tree/master/GramsG4 or ./gramsg4 -h
     values = []
     values += ["./gramsg4"]
     if(Geo=="cube"):
@@ -310,41 +349,59 @@ def GenData(configuration, home_dir, rng_seed):
     print(command)
     subprocess.run(shlex.split(command))
     file_path = os.path.abspath("Source_"+str(rng_seed)+".root")
+    # Return to directory where python script lives
     os.chdir(home)
     return file_path
 
 def GenCondorFiles(config):
+    # Generate .sh and .cmd such that this script can be run on condor
     base = os.getcwd()
+    # Create the paths to all the input files
     shell_file_loc = os.path.join(base,"BatchGenData.sh")
     cmd_file_loc = os.path.join(base,"BatchGenData.cmd")
     python_script_loc = os.path.join(base, sys.argv[0])
     toml_file_loc = os.path.join(base,sys.argv[1])
     tar_file_name = "GramsSimWork.tar.gz"
+    # Move up a directory to access TomlSanityChecker and tarball
     os.chdir("..")
     hm  = os.getcwd()
     toml_parser_name = "TomlSanityCheck.py"
     toml_parser_loc = os.path.join(hm, toml_parser_name)
     tar_file_loc = os.path.join(hm, tar_file_name)
     gdml_loc = os.path.join(hm,"gdml")
+    # Write the shell script which will run on the batch farm
     with open(shell_file_loc,'w') as f:
         f.write("#!/bin/bash -l\n")
+        # Set up conda enviornment.
+        # Yes, I know I shouldn't hard code a path. But it's fine, since so far, the only people who would use condor on this live at Nevis.
+        # If you ever run this out of Nevis, change the path to the correct version
         f.write("conda activate /nevis/riverside/share/ms6556/conda/envs/GramsDev\n")
+        # Read in condor provided batch id
         f.write("process=$1\n")
+        # Unzip GramsSim files
         f.write("tar -xzf "+tar_file_name +"\n")
+        # set up correct file structure so that python script will run
         f.write("mkdir temp\n")
         f.write("mv "+str(sys.argv[0])+ " temp\n")
         f.write("mv "+str(sys.argv[1])+ " temp\n")
         f.write('cd temp\n')
+        # Run this script for the given batch number
         if stream:
+        # Turn off buffering if streaming data back to local machine (the -u argument to python)
             python_cmd = "python -u " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
         else:
             python_cmd = "python " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
         f.write(python_cmd)
+    # 1. Store command line arguments which are seperated by spaces in a list
     values = ["tar", "-czf",tar_file_name,"GramsSimWork"]
+    # 2. Join the arguments with a space
     command = " ".join([str(v) for v in values])
+    # 3. Run via subprocess. Doesn't work if you don't use shlex for some reason...
     subprocess.run(shlex.split(command))
+    # Write .cmd file to use with condor_submit
     with open(cmd_file_loc,"w") as f:
         f.write("executable = "+shell_file_loc+"\n")
+        # Transfer over the tarball, the python script, the config file, the config file parser, and the gdml folder
         f.write("transfer_input_files = "+tar_file_loc+" , "+ python_script_loc + " , " + toml_file_loc+","+toml_parser_loc+","+gdml_loc+"\n")
         f.write("arguments = $(Process)\n")
         f.write("initialdir = "+ config["GenData"]["OutputFolderPath"]["value"]+"\n")
@@ -361,6 +418,7 @@ def GenCondorFiles(config):
         f.write("error = temp-$(Process).err\n")
         f.write("log = temp-$(Process).log\n")
         f.write("notification = Never\n")
+        # Read number of batches to generate from command line
         f.write("queue "+ str(config["GenData"]["NBatches"]["value"]))
 
 if __name__ == "__main__":
@@ -368,21 +426,34 @@ if __name__ == "__main__":
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
     parser.add_argument("-b", '--BatchNo', help="Batch Job ID", type=int, default = 0)
     parser.add_argument("-c",'--GenCondor',help="Weather to generate condor files",action='store_true')
+    parser.add_argument("-d", '--Debug',help="debug flag",action='store_true')
     args = parser.parse_args()
     sanity_checker = TomlSanityCheck(args.GenDataTOML)
-# Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
+    # Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
     sanity_checker.config_file["GenData"]["BatchNo"]=  {"value": int(args.BatchNo),  "constraint":"PosInt"}
     sanity_checker.config_file["GenData"]["GenCondor"]=  {"value": args.GenCondor,  "constraint":"Boolean"}
+    sanity_checker.config_file["GenData"]["Debug"]=  {"value": args.Debug,  "constraint":"Boolean"}
+    # Make sure that config file has sane parameters that satisfy the constraints
     try:
         sanity_checker.validate()
     except Exception as e:
         print(e)
         sys.exit()
     GramsConfig = sanity_checker.return_config()
+    # Condor script generation branch
     if(GramsConfig["GenData"]["GenCondor"]["value"]):
         GenCondorFiles(GramsConfig)
     else:
-        print("Generating Batch"+str(args.BatchNo))
+        if GramsConfig["GenData"]["Debug"]["value"]:
+            print("Generating Batch"+str(args.BatchNo))
+        # I assume that this script is run in some folder that is parallel to another folder where ./gramssky and gramsg4 are located at
+        # So like
+        # .
+        #   /GramsSimWork
+        #   /MCTruth
+        #       CreateMCNNData.py
+
+        # Move up to parent directory
         os.chdir("..")
         hm = os.getcwd()
         random.seed(time.time())
@@ -393,14 +464,17 @@ if __name__ == "__main__":
     # Properly seed the simulation RNG
             rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"]["value"])+run
             gramsg4_file = GenData(GramsConfig, hm, rng_seed )
-            print(gramsg4_file)
+            if (GramsConfig["GenData"]["Debug"]["value"]):
+                print(gramsg4_file)
+            # Run simulation, and generate tensors to pass to PyTorch
             input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
             new = CreateTensor(GramsConfig, input_data, output_data,run)
             output_tensor.update(new)
-    # Add to meta data on how many images were generated in each run for a given batch
+    # Add to meta data how many images were generated in each run for a given batch
             first = list(new.keys())[0]
             meta[str(run)] = str(new[first].shape[0])
-            print(meta)
+            if (GramsConfig["GenData"]["Debug"]["value"]):
+                print(meta)
             os.remove(gramsg4_file)
         fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["BatchNo"]["value"])+".safetensors")
         save_file(output_tensor,fname, metadata=meta)
