@@ -11,5 +11,5 @@ fi
 
 for ((i = 0 ; i <= $max_batches ; i++ ));
 do
-python3 CreateMCNNData.py MCTruth.toml "$i"
+python3 CreateMCNNData.py MCTruth.toml -b "$i"
 done

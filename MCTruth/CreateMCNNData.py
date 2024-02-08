@@ -1,24 +1,55 @@
+# Script that calls GramsSky and GramsG4 to generate data, extracts the Compton scatter series from the data, and then writes them out to a tuple file
+# This is done by by using shlex and subprocess to construct terminal commands which gets processed by the OS
+# The reason for this existing is that doing this manually was very tedious.
+
+# This script will eventually need to expand this to encompass DetSim/ElecSim output
+# Doing this should be relatively straightforward. You would just need to add to the GenData function to call gramsdetsim after gramsg4. You also might need
+# to modify the .toml configuration. This process is repeated for GramsReadoutSim, and GramsElecSim
+# You would also need to modify what you write to the .safetensors file. The output will remain the same (as in you still use gramsg4 output/truth-level-output for the output tensor)
+# However, the input might become more involved (Need to generate multiple channels instead of 1 channel for ElecSim)
+
+# This script can also run in another mode. By supplying -c on the command line, the Script will generate condor file so that you can submit it on the Nevis cluster.
+# Work in progress. Should easily be modifed to run elsewhere.
+# You don't need to interact with this aspect of the code if you don't want to. You can just run everything locally and it _SHOULD_ be fine
+
+# To read config files
 import toml
+# Reading ROOT
 from ROOT import gROOT
 from ROOT import TFile
+# Convert from numpy to pytorch tensor
 from torch import from_numpy
+# save to .safetensor file
 from safetensors.torch import save_file
+# command line parsing
 import argparse
+# terminal command running
 import subprocess, shlex
-import numpy as np
 
+# normal imports
+import numpy as np
 import sys,os, random,time
 
+# Add the directory above MCTruth to Python path. Needed to access TomlSanityCheck, which does data  validation on Config file
+# TomlSanityCheck.py is in the parent directory since I might want to use those commands in another directory in the repo
 sys.path.append('..')
 from  TomlSanityCheck import TomlSanityCheck
 
+# Run ROOT in batch mode
 gROOT.SetBatch(True)
 
+# For condor, stream output and error back to local machine. Why is this not a command line argument?
+# Good question.
+stream = True
+
 class Position:
-# Given the MCTruth ROOT NTuple, convert to x,y,z coordinates to np.array for vector maths
+# Very bare bones R^3 vector. Supports addition, subtraction, L2 norm and dot product, which are the only operations I can about for Scatter Series Reconstruction
+# Effectively a Wrapper around numpy, but converts gramsg4 truth tuple info into Python object
     def __init__(self,MCTruthNTuple):
-        self.pos = np.array([getattr(MCTruthNTuple,"x")[0], getattr(MCTruthNTuple,"y")[0], getattr(MCTruthNTuple,"z")[0]])
+    # Given the MCTruth ROOT NTuple, convert to x,y,z coordinates to np.array for vector maths
+        self.pos = np.array([ getattr(MCTruthNTuple,"x")[0], getattr(MCTruthNTuple,"y")[0], getattr(MCTruthNTuple,"z")[0]])
     def __repr__(self):
+    # If you do print(p) where p is of type Position, this is what is printed out
         output = ""
         output += str(self.pos[0])
         output += " "
@@ -27,13 +58,11 @@ class Position:
         output += str(self.pos[2])
         output += "\n"
         return output
-
+    # __add__ and __sub__ are like operator overloads in C++
     def __add__(self, other):
         return self.pos + other.pos
-
     def __sub__(self, other):
         return self.pos - other.pos
-
     def norm(self):
         return self.pos.norm()
     def dot(self):
@@ -41,6 +70,7 @@ class Position:
 
 class GramsG4Entry:
 # Encapsulates a single entry in the MCTruth of GramsG4
+# effectively just a C struct
     def __init__(self, MCTruthNTuple):
         self.position = Position(MCTruthNTuple)
         self.time = getattr(MCTruthNTuple, "t")[0]
@@ -48,8 +78,6 @@ class GramsG4Entry:
         self.energy = getattr(MCTruthNTuple, "Etot")[0]
         self.identifier = getattr(MCTruthNTuple,"identifier")[0]
     def __repr__(self):
-        return self.__str__()
-    def __str__(self):
         output = ""
         output += "\t"+self.position.__str__()
         output +="\t"+"Time: " +  str(self.time)+"\n"
@@ -63,6 +91,7 @@ class GramsG4Entry:
         return (self.position, self.time, self.energy)
 
 class ScatterSeries:
+# Stores a list of GramsG4Entries, and determines if the series is reconstructable with Compton Cone Method
     def __init__(self):
         self.scatter_series = []
     def __repr__(self):
@@ -76,10 +105,11 @@ class ScatterSeries:
         return output
     def __len__(self):
         return len(self.scatter_series)
-    def add(self,scatter):
-# Assumes that scatter is of type GramsG4Entry
+    def add(self,scatter: GramsG4Entry):
+    # Python lets you do type annotations now, which is neat, and useful in this case since we really only want GramsG4Entries here
         self.scatter_series.append(scatter)
     def sort(self):
+    # Sort the scatter series by time
         self.scatter_series.sort(reverse=False, key= lambda scatter: scatter.time)
     def reconstructable(self):
         if(len(self.scatter_series) <3):
@@ -104,7 +134,7 @@ class ScatterSeries:
         return 0
 
     def output_tuple(self):
-# Calculates the truth level energy and truth-level initial scattering angle (in radians)
+    # Calculates the truth level energy and truth-level initial scattering angle (in radians)
         if(len(self.scatter_series) < 3):
             raise Exception("Scatter Series must be of at least length 3")
         e_type = self.escape_type()
@@ -118,6 +148,8 @@ def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
 # Returns the x and y index on the anode plane for a given xval,yval pair
 # Index (0,0) starts at bottom left. Both axes increase from left to right
 
+# Yes, this is exactly what GramsRecoSim does. No, I could not have just used GramsRecoSim, since GramsRecoSim only accepts the .root file from GramsDetSim
+
 # Since GramsG4 has coordinate system placed at center of anode plane, we need an Offset in x and y to ensure all values are positive
     xOffset = xDim/2.0
     yOffset = yDim/2.0
@@ -129,7 +161,9 @@ def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
     if(xval==xOffset):
         nx = PixelCountX-1
     else:
+# Binning
         nx = int((xval+xOffset)/dx)
+# Last chance to catch out of bounds error
         if( (nx<0) or (nx>=PixelCountX)):
             raise Exception("xval outside TPC. Maybe not filtering series correctly?")
 # Same for y
@@ -142,6 +176,7 @@ def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
     return (nx,ny)
 
 def CreateTensor(configuration, input_data, output_data, run):
+# This assumes TomlSanityChecker has vetted configuration file
 # Mass of electron in MeV. Need to subtract from each hit to get deposition energy
     mass_e =  0.51099895
     Geo = configuration["GenData"]["Geometry"]["value"].lower()
@@ -154,8 +189,9 @@ def CreateTensor(configuration, input_data, output_data, run):
     PixelCountX = int(configuration["GenData"]["PixelCountX"]["value"])
     PixelCountY = int(configuration["GenData"]["PixelCountY"]["value"])
 # 1 stands for number of channels (needed to be compatible with 2D conv layers)
+# For Final version, will need to increase number of channels
     input_labels = np.zeros((len(input_data),1,PixelCountX, PixelCountY) )
-# 1 and 2 stands for a row vector with energy and reconstruction angle as columns
+# 1 and 3 stands for a row vector with energy, reconstruction angle, and escape type as columns
     output_labels = np.zeros((len(input_data), 1, 3))
     count = 0
     for series in input_data:
@@ -188,11 +224,18 @@ def CreateTensor(configuration, input_data, output_data, run):
     return tensors
 
 def ReadRoot(configuration, gramsg4_path):
+    print("Entering")
+    print(gramsg4_path)
+    print(os.path.exists(gramsg4_path))
     GramsG4file = TFile.Open ( gramsg4_path ,"READ")
+    print("Read ROOT File")
     mctruth = GramsG4file.Get("TrackInfo")
     output_mctruth_series = {}
     output_energy_angle = {}
-    for entryNum in range (0 , mctruth.GetEntries()):
+    print("Pulling Data")
+    nentries = mctruth.GetEntries()
+    for entryNum in range (0 , nentries):
+        print(entryNum, nentries)
         mctruth.GetEntry( entryNum )
         dict_key = (getattr(mctruth, "Run"), getattr(mctruth, "Event"))
         scatter = GramsG4Entry(mctruth)
@@ -203,14 +246,18 @@ def ReadRoot(configuration, gramsg4_path):
             s.add(scatter)
             output_mctruth_series[dict_key] = s
     keys = list(output_mctruth_series.keys())
+    print("Classifying Data")
     for key in keys:
         if not (output_mctruth_series[key].reconstructable()):
             del output_mctruth_series[key]
     keys = list(output_mctruth_series.keys())
+    print("Formatting Data")
     for key in keys:
         output_tuple = output_mctruth_series[key].output_tuple()
         output_energy_angle[key] = output_tuple
+    print("Closing File")
     GramsG4file.Close()
+    print("Exiting")
     return output_mctruth_series, output_energy_angle
 
 def GenData(configuration, home_dir, rng_seed):
@@ -262,7 +309,7 @@ def GenData(configuration, home_dir, rng_seed):
     command = " ".join([str(v) for v in values])
     print(command)
     subprocess.run(shlex.split(command))
-    file_path = os.path.join(home,"GramsSimWork","Source_"+str(rng_seed)+".root")
+    file_path = os.path.abspath("Source_"+str(rng_seed)+".root")
     os.chdir(home)
     return file_path
 
@@ -275,8 +322,10 @@ def GenCondorFiles(config):
     tar_file_name = "GramsSimWork.tar.gz"
     os.chdir("..")
     hm  = os.getcwd()
+    toml_parser_name = "TomlSanityCheck.py"
+    toml_parser_loc = os.path.join(hm, toml_parser_name)
     tar_file_loc = os.path.join(hm, tar_file_name)
-    file_to_tar = os.path.join(hm,"GramsSimWork")
+    gdml_loc = os.path.join(hm,"gdml")
     with open(shell_file_loc,'w') as f:
         f.write("#!/bin/bash -l\n")
         f.write("conda activate /nevis/riverside/share/ms6556/conda/envs/GramsDev\n")
@@ -285,19 +334,27 @@ def GenCondorFiles(config):
         f.write("mkdir temp\n")
         f.write("mv "+str(sys.argv[0])+ " temp\n")
         f.write("mv "+str(sys.argv[1])+ " temp\n")
-        f.write('chdir temp\n')
-        python_cmd = "python " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
+        f.write('cd temp\n')
+        if stream:
+            python_cmd = "python -u " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
+        else:
+            python_cmd = "python " +sys.argv[0]+ " " +sys.argv[1]+ " -b " + "${process}\n"
         f.write(python_cmd)
     values = ["tar", "-czf",tar_file_name,"GramsSimWork"]
     command = " ".join([str(v) for v in values])
     subprocess.run(shlex.split(command))
     with open(cmd_file_loc,"w") as f:
         f.write("executable = "+shell_file_loc+"\n")
-        f.write("transfer_input_files = "+tar_file_loc+" , "+ python_script_loc + " , " + toml_file_loc+"\n")
+        f.write("transfer_input_files = "+tar_file_loc+" , "+ python_script_loc + " , " + toml_file_loc+","+toml_parser_loc+","+gdml_loc+"\n")
         f.write("arguments = $(Process)\n")
         f.write("initialdir = "+ config["GenData"]["OutputFolderPath"]["value"]+"\n")
         f.write("universe = vanilla\n")
         f.write("should_transfer_files = YES\n")
+        if stream:
+            f.write("stream_output = True\n")
+            f.write("stream_error = True\n")
+        f.write("request_memory = 1024M\n")
+        f.write("request_disk   = 102400K\n")
         f.write("when_to_transfer_output = ON_EXIT\n")
         f.write("requirements =  ( Arch == \"X86_64\" )\n")
         f.write("output = temp-$(Process).out\n")
@@ -325,6 +382,7 @@ if __name__ == "__main__":
     if(GramsConfig["GenData"]["GenCondor"]["value"]):
         GenCondorFiles(GramsConfig)
     else:
+        print("Generating Batch"+str(args.BatchNo))
         os.chdir("..")
         hm = os.getcwd()
         random.seed(time.time())
@@ -335,13 +393,14 @@ if __name__ == "__main__":
     # Properly seed the simulation RNG
             rng_seed  = max_runs*int(GramsConfig["GenData"]["BatchNo"]["value"])+run
             gramsg4_file = GenData(GramsConfig, hm, rng_seed )
+            print(gramsg4_file)
             input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
             new = CreateTensor(GramsConfig, input_data, output_data,run)
             output_tensor.update(new)
     # Add to meta data on how many images were generated in each run for a given batch
-            for k in new.keys():
-                meta[str(run)] = str(new[k].shape[0])
-                break
+            first = list(new.keys())[0]
+            meta[str(run)] = str(new[first].shape[0])
+            print(meta)
             os.remove(gramsg4_file)
         fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["BatchNo"]["value"])+".safetensors")
         save_file(output_tensor,fname, metadata=meta)

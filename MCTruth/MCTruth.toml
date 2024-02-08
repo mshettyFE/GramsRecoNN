@@ -1,52 +1,71 @@
-# File formatted as follows:
+# Config File formatted as follows:
 
-# Each parameter is formatted like: [XXX.YYY] where XXX refers to the group of the parameter and YYY refers to the name
+# Each parameter is formatted like: [XXX.YYY] where XXX refers to the group of the parameter and YYY refers to the name of the parameter
 # Each parameter has exactly two key:value pairs.
 #   The first is the actual value of the parameter (a path, a number, a string etc.)
 #   The second is the sanity check/constraint on the parameter. See TomlSanityCheck.py for a current list of supported constraints
 
-# GenData
-## Condor stuff
+# This is essentially a poor-mans version of the cue programming language (see https://cuelang.org/docs/usecases/validation/).
+# It works for the simple parsing that I am doing though. Also, toml is build into to Python as of 3.11 (I think), so I'm going with this.
+
+## Image Generation for CNN
+
+# Number of Batches to run on Condor
 [GenData.NBatches]
     value = 2
     constraint = "SPosInt"
 
-## Data generation stuff
+# Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
 [GenData.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
     constraint = "ValidFolder"
+# Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
 [GenData.OutputFileBaseName]
-    value = "AnodeImagesTest"
+    value = "AnodeImagesTrain"
     constraint = "NonEmptyString"
+# What Geometry of the detector to use. Currently only supports "cube" and "flat". Will possibly add "pGrams" later on.
 [GenData.Geometry]
     value = "cube"
     constraint = "DetectorGeometry"
+# The number of particles to generate with GramsSim. NOT the same as the number of Compton scatter series generated.
 [GenData.nparticles]
     value = 10000
     constraint = "SPosInt"
+# The number of runs to be done in per batch.
+# Say that you want to generate a lot of data locally. GramsSim takes up a lot of memory if you crank the number of particles to high
+# Increasing nruns enables you to generate a larger number of particles without running into memory issues.
+# I guess you could also just run the program over and over again. This is just another way.
+# If you don't care for this feature, just set the value to 1.
 [GenData.nruns]
     value = 2
     constraint = "SPosInt"
+# The number of Pixels along the X direction. PGrams has 30.
 [GenData.PixelCountX]
     value = 30
     constraint = "SPosInt"
+# The number of Pixels along the Y direction. PGrams has 30.
 [GenData.PixelCountY]
     value = 30
     constraint = "SPosInt"
 
-# TrainData
+# TrainData. So far, these are just hyperparameters for the model.
+## Learning rate (ie. how big of a step along the gradient do you want to take)
 [TrainData.LearningRate]
     value = 1e-3
     constraint =  "SPosFloat"
+# How many events do you want to process in parallel
 [TrainData.NNBatchSize]
     value = 128
     constraint =  "SPosInt"
+# How many epochs do you want to do?
 [TrainData.EpochNum]
     value = 5
     constraint =  "SPosInt"
+# Where are the .safetensors files with the training data
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
     constraint = "ValidFolder"
+# Where are the .safetensors files with the test data
 [TrainData.InputTestFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
     constraint = "ValidFolder"
