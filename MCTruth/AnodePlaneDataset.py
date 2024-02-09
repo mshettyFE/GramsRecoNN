@@ -95,7 +95,7 @@ class AnodePlaneDataset(Dataset):
         plt.title(title)
         plt.show()
 
-def truth_level_class_pics(anodeDataset,verbose = True, plot=True, display_escape = True):
+def truth_level_class_pics(anodeDataset,verbose = False, plot=True, display_escape = True):
 # Aggregate all events into a single image, sorted by class (one for "All In", on for "Escape"
     total = len(anodeDataset)
     xDim = anodeDataset[0][0].shape[1]
