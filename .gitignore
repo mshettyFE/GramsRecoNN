@@ -1,4 +1,5 @@
 /GramsSimWork
+.nfs*
 *.hdf
 *.png
 *.csv

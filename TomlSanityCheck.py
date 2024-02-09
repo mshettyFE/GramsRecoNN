@@ -1,5 +1,7 @@
 import toml
 import os
+import sys
+import argparse
 from abc import ABC, abstractmethod
 
 class TomlSanityCheck:
@@ -74,7 +76,14 @@ class TomlSanityCheck:
 
     def return_config(self):
         return self.config_file
-
+    
+    def gen_bash_variables(self):
+        output = ""
+        for group in self.config_file:
+            for argument in self.config_file[group]:
+                bash_var = group+"_"+str(argument)+"="+str(self.config_file[group][argument]["value"])+"\n"
+                output += bash_var
+        return output
 # Abstract base class from which all other constraints are derived from
 class TOMLParameterConstraint(ABC):
     def __init__(self,parameter_value):
@@ -184,6 +193,16 @@ class BooleanCheck(TOMLParameterConstraint):
         return False
 
 if __name__ =="__main__":
-    base = os.getcwd()
-    s = TomlSanityCheck(os.path.join(base,"MCTruth","MCTruth.toml"))
-    s.validate()
+# By Default, converts toml file to a list of bash variables
+    parser = argparse.ArgumentParser(prog='CreateMCNNData')
+    parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
+    args = parser.parse_args()
+    try:
+        s = TomlSanityCheck(args.GenDataTOML)
+        s.validate()
+    except Exception as err:
+        print("Parsing Failed!")
+        print(err)
+        sys.exit(1)
+    # Assuming all went well, print out a string containing bash variables
+    print(s.gen_bash_variables())

@@ -15,6 +15,13 @@
     value = 2
     constraint = "SPosInt"
 
+[GenData.GramsSimWorkPath]
+    value="/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GramsSimWork"
+    constraint="ValidFolder"
+[GenData.GDMLPath]
+    value="/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/gdml"
+    constraint="ValidFolder"
+
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
 [GenData.OutputFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
@@ -30,14 +37,6 @@
 # The number of particles to generate with GramsSim. NOT the same as the number of Compton scatter series generated.
 [GenData.nparticles]
     value = 10000
-    constraint = "SPosInt"
-# The number of runs to be done in per batch.
-# Say that you want to generate a lot of data locally. GramsSim takes up a lot of memory if you crank the number of particles to high
-# Increasing nruns enables you to generate a larger number of particles without running into memory issues.
-# I guess you could also just run the program over and over again. This is just another way.
-# If you don't care for this feature, just set the value to 1.
-[GenData.nruns]
-    value = 2
     constraint = "SPosInt"
 # The number of Pixels along the X direction. PGrams has 30.
 [GenData.PixelCountX]
