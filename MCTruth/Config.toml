@@ -36,7 +36,7 @@
     constraint = "DetectorGeometry"
 # The number of particles to generate with GramsSim. NOT the same as the number of Compton scatter series generated.
 [GenData.nparticles]
-    value = 1000
+    value = 10000
     constraint = "SPosInt"
 # The number of Pixels along the X direction. PGrams has 30.
 [GenData.PixelCountX]

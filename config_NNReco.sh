@@ -10,6 +10,7 @@ fi
 cd GramsSimWork
 cmake ../GramsSim
 make
+cp -r GDMLSchema/ ../gdml
 #cd ../SparseConvNet
 #export TORCH_CUDA_ARCH_LIST="6.0;6.1;6.2;7.0;7.5"
 #rm -rf build/ dist/ sparseconvnet.egg-info sparseconvnet_SCN*.so
