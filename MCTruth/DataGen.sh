@@ -26,7 +26,7 @@ then
     exit
 fi
 
-# set up enviornment. Don't know how to generalize this
+# set up enviornment. Don't know how to generalize this. Replace this with location of you conda enviornment
 conda activate /nevis/riverside/share/ms6556/conda/envs/GramsDev
 
 # Parse arguments from config file
@@ -117,8 +117,9 @@ if [ -z ${DRY_RUN} ];
 then python CreateMCNNData.py $TOML_FILE_LOC -r "$RUN_NUM";
 fi 
 
+cd $GenData_GramsSimWorkPath
+
 OUTPUT_FILE_LOC=$GenData_GramsSimWorkPath
 OUTPUT_FILE_LOC+=$OUTPUT_ROOT
-cd $CUR_DIR
 conda deactivate
 #rm $OUTPUT_FILE_LOC

@@ -24,7 +24,7 @@
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
 [GenData.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
     constraint = "ValidFolder"
 # Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
 [GenData.OutputFileBaseName]
@@ -36,7 +36,7 @@
     constraint = "DetectorGeometry"
 # The number of particles to generate with GramsSim. NOT the same as the number of Compton scatter series generated.
 [GenData.nparticles]
-    value = 10000
+    value = 100
     constraint = "SPosInt"
 # The number of Pixels along the X direction. PGrams has 30.
 [GenData.PixelCountX]
