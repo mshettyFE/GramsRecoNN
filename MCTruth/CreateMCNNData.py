@@ -290,7 +290,7 @@ if __name__ == "__main__":
     #   /GramsSimWork
     #   /MCTruth
     #       CreateMCNNData.py
-
+    print(GramsConfig)
     # Move up to parent directory
     os.chdir("..")
     hm = os.getcwd()

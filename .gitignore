@@ -7,8 +7,5 @@
 config_vars.sh
 *.tar.gz
 gdml/GDMLSchema
-!LocalBatchGen.sh
-!DataGen.sh
-!SubmitMCJob.sh
 nohup.out
 __pycache__
