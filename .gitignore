@@ -9,5 +9,6 @@
 *.tar.gz
 gdml/GDMLSchema
 !LocalBatchGen.sh
+!DataGen.sh
 nohup.out
 __pycache__
