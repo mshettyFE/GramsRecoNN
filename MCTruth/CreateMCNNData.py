@@ -1,5 +1,4 @@
 # Takes in GramsG4 File, extracts Compton scatters from data, suppresses z axis information and pixellates data on AnodePlane to form image, and then write to disk
-
 # To read config files
 import toml
 # Reading ROOT
@@ -209,6 +208,7 @@ def CreateTensor(configuration, input_data, output_data, run):
     }
     return tensors
 
+#@profile
 def ReadRoot(configuration, gramsg4_path):
     if (configuration["GenData"]["Debug"]["value"]):
     # See if gramsg4_path is valid
@@ -290,7 +290,6 @@ if __name__ == "__main__":
     #   /GramsSimWork
     #   /MCTruth
     #       CreateMCNNData.py
-    print(GramsConfig)
     # Move up to parent directory
     os.chdir("..")
     hm = os.getcwd()

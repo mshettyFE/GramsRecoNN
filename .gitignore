@@ -9,3 +9,4 @@ config_vars.sh
 gdml/GDMLSchema
 nohup.out
 __pycache__
+memray*
