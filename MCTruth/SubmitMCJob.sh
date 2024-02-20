@@ -33,7 +33,7 @@ source config_vars.sh # add bash variables to this script
 IsSet GenData_OutputFolderPath
 IsSet GenData_NBatches
 
-tar -czf  GramsSimWork.tar.gz  GramsSimWork
+tar -czf  GramsSimWork.tar.gz  ../GramsSimWork
 sed -i '$ d' CondorInfo.cmd
 echo "initialdir=${GenData_OutputFolderPath}" >> CondorInfo.cmd
 condor_submit CondorInfo.cmd -queue $GenData_NBatches

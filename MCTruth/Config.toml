@@ -16,15 +16,15 @@
     constraint = "SPosInt"
 
 [GenData.GramsSimWorkPath]
-    value="/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GramsSimWork"
+    value="../GramsSimWork"
     constraint="ValidFolder"
 [GenData.GDMLPath]
-    value="/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/gdml"
+    value="../gdml"
     constraint="ValidFolder"
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
 [GenData.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain"
     constraint = "ValidFolder"
 # Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
 [GenData.OutputFileBaseName]

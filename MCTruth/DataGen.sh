@@ -83,7 +83,6 @@ fi
 CUR_DIR=$(pwd)
 
 # Generate associated macro file for gramsg4 to read gramssky
-cd $GenData_GramsSimWorkPath
 
 MAC_TEXT="/run/initialize
 /run/beamOn $GenData_nparticles"
@@ -92,6 +91,8 @@ MAC_FILE_LOC="$GenData_GramsSimWorkPath/mac/temp.mac"
 echo "$MAC_TEXT" > $MAC_FILE_LOC
 echo $OUTPUT_ROOT
 # Run the things
+
+cd $GenData_GramsSimWorkPath
 
 cmd=(./gramssky --RadiusSphere "$RADIUS_SPHERE" --RadiusDisc "$RADIUS_DISC" --PositionGeneration Iso -n $GenData_nparticles --ThetaMinMax "\"(-1.571, 1.571)\"" --PhiMinMax "\"(0,6.283)\"" -s "$RUN_NUM" -r "$RUN_NUM" --OriginSphere "$ORIGIN_LOC" --EnergyGeneration Flat --EnergyMin 0.1 --EnergyMax 10)
 if [ -z ${DRY_RUN} ];

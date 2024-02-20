@@ -297,7 +297,7 @@ if __name__ == "__main__":
     output_tensor = {}
     meta = {}
     # Run simulation, and generate tensors to pass to PyTorch
-    gramsg4_file = os.path.join(GramsConfig["GenData"]["GramsSimWorkPath"]["value"],"gramsg4.root")
+    gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
     new = CreateTensor(GramsConfig, input_data, output_data,GramsConfig["GenData"]["RunID"]["value"])
     output_tensor.update(new)
