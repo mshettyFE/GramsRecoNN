@@ -6,10 +6,7 @@ from abc import ABC, abstractmethod
 
 class TomlSanityCheck:
     def __init__(self, file_path, verbose = False):
-        try:
-            self.config_file = toml.load(file_path)
-        except:
-            raise Exception("Couldn't parse "+str(file_path))
+        self.config_file = toml.load(file_path)
 # Make sure that dictionary has correct formatting. For reference, the file formatted as follows:
 
 # Each parameter is formatted like: [XXX.YYY] where XXX refers to the group of the parameter and YYY refers to the name
@@ -39,9 +36,14 @@ class TomlSanityCheck:
                         err_msg += "' under section '"+str(section) + "' is neither 'value' nor 'constraint'"
                         raise Exception(err_msg)
 
-    def validate(self):
-        for section_name in self.config_file:
-            section = self.config_file[section_name]
+    def validate(self, sections=[]):
+        if (len(sections)==0):
+            sections = [sec for sec in self.config_file]
+        for section_name in sections:
+            try:
+                section = self.config_file[section_name]
+            except:
+                raise Exception(section +" is not found in config file!")
             for parameter in section:
                 val = section[parameter]["value"]
                 constraint_name = section[parameter]["constraint"]
@@ -77,10 +79,18 @@ class TomlSanityCheck:
     def return_config(self):
         return self.config_file
     
-    def gen_bash_variables(self):
+    def gen_bash_variables(self,sections = []):
         output = ""
-        for group in self.config_file:
-            for argument in self.config_file[group]:
+        if sections== []:
+            groups = [g for g in self.config_file]
+        else:
+            groups = sections
+        for group in groups:
+            try:
+                section = self.config_file[group]
+            except:
+                raise Exception(section +" is not found in config file!")
+            for argument in section:
                 bash_var = group+"_"+str(argument)+"="+str(self.config_file[group][argument]["value"])+"\n"
                 output += bash_var
         return output
@@ -196,13 +206,19 @@ if __name__ =="__main__":
 # By Default, converts toml file to a list of bash variables
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
+    parser.add_argument("-s", "--section" ,type=str, help="Comma delimited list stating which section(s) to read in. If nothing, just reads and validates everything")
     args = parser.parse_args()
+    if args.section:
+    # Splits section argument into constituent parts, removes all whitespace in each part, then creates list
+        sections = [''.join(item.split()) for item in args.section.split(',')]
+    else:
+        sections = []
     try:
         s = TomlSanityCheck(args.GenDataTOML)
-        s.validate()
+        s.validate(sections)
     except Exception as err:
         print("Parsing Failed!")
         print(err)
         sys.exit(1)
     # Assuming all went well, print out a string containing bash variables
-    print(s.gen_bash_variables())
+    print(s.gen_bash_variables(sections=sections))

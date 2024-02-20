@@ -306,5 +306,5 @@ if __name__ == "__main__":
     meta[str(GramsConfig["GenData"]["RunID"]["value"])] = str(new[first].shape[0])
     if (GramsConfig["GenData"]["Debug"]["value"]):
         print(meta)
-    fname = os.path.join(GramsConfig["GenData"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["RunID"]["value"])+".safetensors")
+    fname = os.path.join(GramsConfig["Condor"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["RunID"]["value"])+".safetensors")
     save_file(output_tensor,fname, metadata=meta)

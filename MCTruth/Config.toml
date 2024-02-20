@@ -11,9 +11,14 @@
 ## Image Generation for CNN
 
 # Number of Batches to run on Condor
-[GenData.NBatches]
-    value = 2
+[Condor.NBatches]
+    value = 10
     constraint = "SPosInt"
+
+# Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
+[Condor.OutputFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTest"
+    constraint = "ValidFolder"
 
 [GenData.GramsSimWorkPath]
     value="../GramsSimWork"
@@ -22,10 +27,6 @@
     value="../gdml"
     constraint="ValidFolder"
 
-# Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
-[GenData.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain"
-    constraint = "ValidFolder"
 # Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
 [GenData.OutputFileBaseName]
     value = "AnodeImagesTrain"

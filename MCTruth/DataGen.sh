@@ -41,11 +41,11 @@ fi
 
 source config_vars.sh # add bash variables to this script
 # Check to see if relavent variables are set (useful in case you change a variable name)
+IsSet Condor_OutputFolderPath
 IsSet GenData_GramsSimWorkPath
 IsSet GenData_GDMLPath
 IsSet GenData_nparticles
 IsSet GenData_Geometry
-IsSet GenData_OutputFolderPath
 IsSet GenData_OutputFileBaseName
 
 OUTPUT_NAME_BASE="$GenData_OutputFolderPath/$GenData_OutputFileBaseName"
@@ -89,7 +89,6 @@ MAC_TEXT="/run/initialize
 MAC_FILE_LOC="$GenData_GramsSimWorkPath/mac/temp.mac"
 
 echo "$MAC_TEXT" > $MAC_FILE_LOC
-echo $OUTPUT_ROOT
 # Run the things
 
 cd $GenData_GramsSimWorkPath
@@ -120,7 +119,12 @@ fi
 
 cd $GenData_GramsSimWorkPath
 
-OUTPUT_FILE_LOC=$GenData_GramsSimWorkPath
-OUTPUT_FILE_LOC+=$OUTPUT_ROOT
+OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
+OUTPUT_FILE_LOC+="/gramsg4.root"
+echo $OUTPUT_FILE_LOC
+rm $OUTPUT_FILE_LOC
+OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
+OUTPUT_FILE_LOC+="/${GRAMSSKY_OUTPUT}"
+echo $OUTPUT_FILE_LOC
+rm $OUTPUT_FILE_LOC
 conda deactivate
-#rm $OUTPUT_FILE_LOC

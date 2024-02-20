@@ -20,7 +20,7 @@ IsSet TOML_FILE_LOC
 conda activate /nevis/riverside/share/ms6556/conda/envs/GramsDev
 
 # Parse arguments from config file
-RESULT=$(python $TOML_SANITY_CHECK_LOC $TOML_FILE_LOC)
+RESULT=$(python $TOML_SANITY_CHECK_LOC $TOML_FILE_LOC -s "Condor")
 if echo $RESULT | grep "Parsing Failed!" # Search for Parsing Failed! to indicate
 then
     echo "$RESULT" # Print out error message
@@ -30,10 +30,10 @@ else
 fi
 
 source config_vars.sh # add bash variables to this script
-IsSet GenData_OutputFolderPath
-IsSet GenData_NBatches
+IsSet Condor_OutputFolderPath
+IsSet Condor_NBatches
 
 tar -czf  GramsSimWork.tar.gz  ../GramsSimWork
 sed -i '$ d' CondorInfo.cmd
-echo "initialdir=${GenData_OutputFolderPath}" >> CondorInfo.cmd
-condor_submit CondorInfo.cmd -queue $GenData_NBatches
+echo "initialdir=${Condor_OutputFolderPath}" >> CondorInfo.cmd
+condor_submit CondorInfo.cmd -queue $Condor_NBatches

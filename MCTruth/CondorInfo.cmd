@@ -13,4 +13,4 @@ requirements = ( Arch == "X86_64" )
 output         = temp-$(Process).out
 error          = temp-$(Process).err
 log            = temp-$(Process).log
-initialdir=/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain
+initialdir=/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTest
