@@ -1,4 +1,5 @@
 #!/bin/bash
+conda activate $CONDA_PATH
 git submodule init
 git submodule update
 rm -rf GramsSimWork
