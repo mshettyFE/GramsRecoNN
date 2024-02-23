@@ -12,12 +12,12 @@
 
 # Number of Batches to run on Condor
 [Condor.NBatches]
-    value = 10
+    value = 20000
     constraint = "SPosInt"
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
 [Condor.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTest"
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain"
     constraint = "ValidFolder"
 
 [GenData.GramsSimWorkPath]

@@ -122,7 +122,7 @@ cd $GenData_GramsSimWorkPath
 OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
 OUTPUT_FILE_LOC+="/gramsg4.root"
 echo $OUTPUT_FILE_LOC
-rm $OUTPUT_FILE_LOC
+#rm $OUTPUT_FILE_LOC
 OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
 OUTPUT_FILE_LOC+="/${GRAMSSKY_OUTPUT}"
 echo $OUTPUT_FILE_LOC

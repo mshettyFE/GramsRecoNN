@@ -8,9 +8,10 @@ universe = vanilla
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-requirements = ( Arch == "X86_64" )
+# machine boolean temporary hack since amsterdan running CentOs. Workarout for that is just not submitting to amsterdam
+requirements =( ( Arch == "X86_64" ) && ( machine != "amsterdam.nevis.columbia.edu" ))
 
 output         = temp-$(Process).out
 error          = temp-$(Process).err
 log            = temp-$(Process).log
-initialdir=/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTest
+initialdir=/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain
