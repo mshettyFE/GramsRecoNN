@@ -8,17 +8,19 @@
 # This is essentially a poor-mans version of the cue programming language (see https://cuelang.org/docs/usecases/validation/).
 # It works for the simple parsing that I am doing though. Also, toml is build into to Python as of 3.11 (I think), so I'm going with this.
 
-## Image Generation for CNN
+## Condor-Exclusive Parameters
 
 # Number of Batches to run on Condor
 [Condor.NBatches]
-    value = 20000
+    value = 1000
     constraint = "SPosInt"
 
-# Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file though)
+# Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file)
 [Condor.OutputFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain"
     constraint = "ValidFolder"
+
+## Image Generation for CNN
 
 [GenData.GramsSimWorkPath]
     value="../GramsSimWork"
