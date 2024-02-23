@@ -2,8 +2,7 @@
 # To read config files
 import toml
 # Reading ROOT
-from ROOT import gROOT
-from ROOT import TFile
+import uproot
 # Convert from numpy to pytorch tensor
 from torch import from_numpy
 # save to .safetensor file
@@ -20,9 +19,6 @@ import sys,os, random,time
 sys.path.append('..')
 from  TomlSanityCheck import TomlSanityCheck
 
-# Run ROOT in batch mode
-gROOT.SetBatch(True)
-
 # For condor, stream output and error back to local machine. Why is this not a command line argument?
 # Good question.
 stream = True
@@ -32,7 +28,7 @@ class Position:
 # Effectively a Wrapper around numpy, but converts gramsg4 truth tuple info into Python object
     def __init__(self,MCTruthNTuple):
     # Given the MCTruth ROOT NTuple, convert to x,y,z coordinates to np.array for vector maths
-        self.pos = np.array([ getattr(MCTruthNTuple,"x")[0], getattr(MCTruthNTuple,"y")[0], getattr(MCTruthNTuple,"z")[0]])
+        self.pos = np.array([ MCTruthNTuple["x"][0], MCTruthNTuple["y"][0], MCTruthNTuple["z"][0]])
     def __repr__(self):
     # If you do print(p) where p is of type Position, this is what is printed out
         output = ""
@@ -58,10 +54,10 @@ class GramsG4Entry:
 # effectively just a C struct
     def __init__(self, MCTruthNTuple):
         self.position = Position(MCTruthNTuple)
-        self.time = getattr(MCTruthNTuple, "t")[0]
-        self.process = getattr(MCTruthNTuple, "ProcessName")
-        self.energy = getattr(MCTruthNTuple, "Etot")[0]
-        self.identifier = getattr(MCTruthNTuple,"identifier")[0]
+        self.time = MCTruthNTuple["t"][0]
+        self.process = MCTruthNTuple["ProcessName"]
+        self.energy = MCTruthNTuple["Etot"][0]
+        self.identifier = MCTruthNTuple["identifier"][0]
     def __repr__(self):
         output = ""
         output += "\t"+self.position.__str__()
@@ -208,61 +204,34 @@ def CreateTensor(configuration, input_data, output_data, run):
     }
     return tensors
 
-#@profile
 def ReadRoot(configuration, gramsg4_path):
-    if (configuration["GenData"]["Debug"]["value"]):
-    # See if gramsg4_path is valid
-        print("Entering")
-        print(gramsg4_path)
-        print(os.path.exists(gramsg4_path))
-    # Open up root file
-    GramsG4file = TFile.Open ( gramsg4_path ,"READ")
-    if (configuration["GenData"]["Debug"]["value"]):
-    # Finished reading root file
-        print("Read ROOT File")
-    # Get TrackInfo tuple containing MCTruth data
-    mctruth = GramsG4file.Get("TrackInfo")
     mctruth_series = {}
     output_energy_angle = {}
-    if (configuration["GenData"]["Debug"]["value"]):
-    # Start reading entries
-        print("Pulling Data")
-    nentries = mctruth.GetEntries()
-    for entryNum in range (0 , nentries):
-        if (configuration["GenData"]["Debug"]["value"]):
-            print(entryNum, nentries)
-        mctruth.GetEntry( entryNum )
-        dict_key = (getattr(mctruth, "Run"), getattr(mctruth, "Event"))
-# Pack MCTruth info into Entry object, then pack all associated Entry object into a ScatterSeries object
-        scatter = GramsG4Entry(mctruth)
-# Checking if Run/Event key is present. If not, add, then add new ScatterSeries object
-        if dict_key in mctruth_series:
-            mctruth_series[dict_key].add(scatter)
-        else:
-            s = ScatterSeries()
-            s.add(scatter)
-            mctruth_series[dict_key] = s
-    if (configuration["GenData"]["Debug"]["value"]):
-        print("Classifying Data")
-    # Grab all the keys (ie. all the scatter series), and check if they are reconstructable. If they are, store in an seperate dictionary
-    all_keys = list(mctruth_series.keys())
-    output_mctruth_series = {}
-    for key in all_keys:
-        if mctruth_series[key].reconstructable():
-            output_mctruth_series[key] = mctruth_series[key]
-    if (configuration["GenData"]["Debug"]["value"]):
-        print("Formatting Data")
-    # Extract the necessary information from the reconstructable series and return that
-    output_keys = list(output_mctruth_series.keys())
-    for key in output_keys:
-        output_tuple = output_mctruth_series[key].output_tuple()
-        output_energy_angle[key] = output_tuple
-    # Clean up
-    if (configuration["GenData"]["Debug"]["value"]):
-        print("Closing File")
-    if (configuration["GenData"]["Debug"]["value"]):
-        print("Exiting")
-    GramsG4file.Close()
+    # Open up root file and get TrackInfo TTree
+    with uproot.open(gramsg4_path+":TrackInfo") as mctruth:
+        for group in uproot.iterate(mctruth, step_size=1):
+            for hit in group:
+                dict_key = (hit["Run"], hit["Event"])
+                # Pack hit info into Entry object, then pack all associated Entry objects into a ScatterSeries object
+                scatter = GramsG4Entry(hit)
+                # Checking if Run/Event key is present. If not, add, then add new ScatterSeries object
+                if dict_key in mctruth_series:
+                    mctruth_series[dict_key].add(scatter)
+                else:
+                    s = ScatterSeries()
+                    s.add(scatter)
+                    mctruth_series[dict_key] = s
+        # Grab all the keys (ie. all the scatter series), and check if they are reconstructable. If they are, store in an seperate dictionary
+        all_keys = list(mctruth_series.keys())
+        output_mctruth_series = {}
+        for key in all_keys:
+            if mctruth_series[key].reconstructable():
+                output_mctruth_series[key] = mctruth_series[key]
+        # Extract the necessary information from the reconstructable series and return that
+        output_keys = list(output_mctruth_series.keys())
+        for key in output_keys:
+            output_tuple = output_mctruth_series[key].output_tuple()
+            output_energy_angle[key] = output_tuple    
     return output_mctruth_series, output_energy_angle
 
 if __name__ == "__main__":

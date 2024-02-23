@@ -1,6 +1,7 @@
 [submodule "GramsSim"]
 	path = GramsSim
 	url = https://github.com/wgseligman/GramsSim.git
+    branch = develop
 [submodule "SparseConvNet"]
 	path = SparseConvNet
 	url = https://github.com/facebookresearch/SparseConvNet.git
