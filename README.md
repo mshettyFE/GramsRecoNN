@@ -2,7 +2,7 @@
 
 If at Nevis, run the following:
 ```
-export CONDA_PATH="/nevis/riverside/data/ms6556/conda/envs/GramsDev"
+export CONDA_ENV_PATH="/nevis/riverside/share/ms6556/conda/envs/GramsDev"
 ./config_NNReco.sh
 ```
 
@@ -14,20 +14,20 @@ file="enviornment.yml"
 conda env update --name $name --file $file
 ```
 
-Then, run ```conda env list``` and replace the CONDA_PATH with your own GramsDev path.
+Then, run ```conda env list``` and replace the CONDA_ENV_PATH with your own GramsDev path.
 
 Once you have the enviornment set up, run the following to finish the setup:
 ```
-export CONDA_PATH=""YOUR_CONDA_ENV_PATH_HERE"
+export CONDA_ENV_PATH=""YOUR_CONDA_ENV_PATH_HERE"
 ./config_NNReco.sh
 ```
 
 # Generating Data
 If you want to generate more MCTruth training data run the following command in the MCTruth folder
 ```
-./DataGen.sh ../TomlSanityCheck.py Config.toml $tag
+./DataGen.sh ../TomlSanityCheck.py Config.toml $num
 ```
-where ```$tag``` is the unique identifier for the output file. You can change the output directory in the GenData header in Config.toml file under the GenData directory. You can also fiddle with other parameters if you like.
+where ```$num``` is the unique run number for the output file. You can change the output directory in the GenData header in Config.toml file under the GenData directory. You can also fiddle with other parameters if you like.
 
 In fact, for your first run, you WILL need to fiddle with the Config.toml since some value are specific to Nevis/myself. It should be well-documented enough to make changes easily?
 

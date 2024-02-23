@@ -17,7 +17,7 @@ IsSet TOML_SANITY_CHECK_LOC
 IsSet TOML_FILE_LOC
 
 # set up enviornment. Don't know how to generalize this. Replace this with location of you conda enviornment
-conda activate $CONDA_PATH
+conda activate $CONDA_ENV_PATH
 
 # Parse arguments from config file
 RESULT=$(python $TOML_SANITY_CHECK_LOC $TOML_FILE_LOC -s "Condor")

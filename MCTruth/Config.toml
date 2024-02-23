@@ -12,7 +12,7 @@
 
 # Number of Batches to run on Condor
 [Condor.NBatches]
-    value = 1000
+    value = 2
     constraint = "SPosInt"
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file)
@@ -39,7 +39,7 @@
     constraint = "DetectorGeometry"
 # The number of particles to generate with GramsSim. NOT the same as the number of Compton scatter series generated.
 [GenData.nparticles]
-    value = 10000
+    value = 1000
     constraint = "SPosInt"
 # The number of Pixels along the X direction. PGrams has 30.
 [GenData.PixelCountX]
