@@ -16,7 +16,8 @@ TOML_FILE_LOC=$2 # .toml file containing arguments
 IsSet TOML_SANITY_CHECK_LOC
 IsSet TOML_FILE_LOC
 
-# set up enviornment. Don't know how to generalize this. Replace this with location of you conda enviornment
+# set up enviornment.
+IsSet CONDA_ENV_PATH
 conda activate $CONDA_ENV_PATH
 
 # Parse arguments from config file
@@ -33,7 +34,9 @@ source config_vars.sh # add bash variables to this script
 IsSet Condor_OutputFolderPath
 IsSet Condor_NBatches
 
+sed -i '1d' 
+
 tar -czf  GramsSimWork.tar.gz  ../GramsSimWork
-sed -i '$ d' CondorInfo.cmd
-echo "initialdir=${Condor_OutputFolderPath}" >> CondorInfo.cmd
+sed -i '$ d' CondorInfo.cmd # Remove last line
+echo "initialdir=${Condor_OutputFolderPath}" >> CondorInfo.cmd # add line specifying output directory
 condor_submit CondorInfo.cmd -queue $Condor_NBatches

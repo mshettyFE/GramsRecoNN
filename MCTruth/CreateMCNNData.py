@@ -19,16 +19,16 @@ import sys,os, random,time
 sys.path.append('..')
 from  TomlSanityCheck import TomlSanityCheck
 
-# For condor, stream output and error back to local machine. Why is this not a command line argument?
-# Good question.
-stream = True
+# sorted Branches of Gramsg4 root tuple, along with map
+TrackInfo_keys = ['Etot', 'Event', 'PDGCode', 'ParentID', 'ProcessName', 'Run', 'TrackID', 'identifier', 'px', 'py', 'pz', 't', 'x', 'y', 'z']
+TrackInfo_keys_map = {k:v for k,v in zip(TrackInfo_keys,range(len(TrackInfo_keys)))}
+
 
 class Position:
 # Very bare bones R^3 vector. Supports addition, subtraction, L2 norm and dot product, which are the only operations I can about for Scatter Series Reconstruction
 # Effectively a Wrapper around numpy, but converts gramsg4 truth tuple info into Python object
-    def __init__(self,MCTruthNTuple):
-    # Given the MCTruth ROOT NTuple, convert to x,y,z coordinates to np.array for vector maths
-        self.pos = np.array([ MCTruthNTuple["x"][0], MCTruthNTuple["y"][0], MCTruthNTuple["z"][0]])
+    def __init__(self,x,y,z):
+        self.pos = np.array([x,y,z])
     def __repr__(self):
     # If you do print(p) where p is of type Position, this is what is printed out
         output = ""
@@ -52,15 +52,18 @@ class Position:
 class GramsG4Entry:
 # Encapsulates a single entry in the MCTruth of GramsG4
 # effectively just a C struct
-    def __init__(self, MCTruthNTuple):
-        self.position = Position(MCTruthNTuple)
-        self.time = MCTruthNTuple["t"][0]
-        self.process = MCTruthNTuple["ProcessName"]
-        self.energy = MCTruthNTuple["Etot"][0]
-        self.identifier = MCTruthNTuple["identifier"][0]
+    def __init__(self,dataframe: np.ndarray):
+        if (dataframe.shape[0] != 15):
+            raise Exception("This hit cannot be reconstructed")
+        self.position = Position(dataframe[TrackInfoIndex('x')],dataframe[TrackInfoIndex('y')],dataframe[TrackInfoIndex('z')])
+        self.time = dataframe[TrackInfoIndex('t')]
+        self.process = dataframe[TrackInfoIndex('ProcessName')]
+        self.energy = dataframe[TrackInfoIndex('Etot')]
+        self.identifier = dataframe[TrackInfoIndex('identifier')]
+
     def __repr__(self):
         output = ""
-        output += "\t"+self.position.__str__()
+        output += "\tPosition:"+self.position.__str__()
         output +="\t"+"Time: " +  str(self.time)+"\n"
         output +="\t"+"Process: " +  str(self.process)+"\n"
         output +="\t"+"Energy: " +  str(self.energy)+"\n"
@@ -204,34 +207,61 @@ def CreateTensor(configuration, input_data, output_data, run):
     }
     return tensors
 
+def TrackInfoIndex(label:str):
+    global TrackInfo_keys_map
+    if label not in TrackInfo_keys_map:
+        raise Exception("invalid gramsg4 label")
+    out = TrackInfo_keys_map[label]
+    return out
+
+
 def ReadRoot(configuration, gramsg4_path):
-    mctruth_series = {}
+    output_mctruth_series = {}
     output_energy_angle = {}
     # Open up root file and get TrackInfo TTree
     with uproot.open(gramsg4_path+":TrackInfo") as mctruth:
-        for group in uproot.iterate(mctruth, step_size=1):
-            for hit in group:
-                dict_key = (hit["Run"], hit["Event"])
-                # Pack hit info into Entry object, then pack all associated Entry objects into a ScatterSeries object
-                scatter = GramsG4Entry(hit)
-                # Checking if Run/Event key is present. If not, add, then add new ScatterSeries object
-                if dict_key in mctruth_series:
-                    mctruth_series[dict_key].add(scatter)
-                else:
-                    s = ScatterSeries()
-                    s.add(scatter)
-                    mctruth_series[dict_key] = s
-        # Grab all the keys (ie. all the scatter series), and check if they are reconstructable. If they are, store in an seperate dictionary
-        all_keys = list(mctruth_series.keys())
-        output_mctruth_series = {}
-        for key in all_keys:
-            if mctruth_series[key].reconstructable():
-                output_mctruth_series[key] = mctruth_series[key]
-        # Extract the necessary information from the reconstructable series and return that
+        keys = mctruth.keys()
+        keys  = list(keys)
+        keys.sort()
+        data =  mctruth.arrays(library='np')
+        # Doing this since I couldn't find any syntax that allows you to index a numpy array with entries of variable length
+        # We only care about the first entry when there are multiple deposits in a hit
+        for i in range(data['t'].shape[0]):
+            data['t'][i] = data['t'][i][0]
+            data['x'][i] = data['x'][i][0]
+            data['y'][i] = data['y'][i][0]
+            data['z'][i] = data['z'][i][0]
+            data['px'][i] = data['px'][i][0]
+            data['py'][i] = data['py'][i][0]
+            data['pz'][i] = data['pz'][i][0]
+            data['Etot'][i] = data['Etot'][i][0]
+            data['identifier'][i] = data['identifier'][i][0]
+        unique_event_mask = np.unique(data["Event"]) # Grab all the unique events
+        unique_run_mask = np.unique(data["Run"]) # Grab all unique runs
+        for run in unique_run_mask:
+            for event in unique_event_mask:
+                event_mask = np.logical_and((data["Run"]==run), ( data["Event"]==event)) # Grab all hits coming from the same initial gamma ray
+                check_for_reconstructable_mask = np.logical_and(event_mask,data["ProcessName"]!="Primary") # From the hits, get all the non-photon events
+                primary_mask = np.logical_and(event_mask,(data["ProcessName"]=="Primary")) # get the gamma ray for this particular event
+                # get the data for this event
+                scatters = [data[str(key)][check_for_reconstructable_mask] for key in keys]
+                gamma = [data[str(key)][primary_mask] for key in keys]
+                # package the data into a single numpy array
+                scatters = np.stack(scatters)
+                gamma = np.concatenate(gamma)
+                # Generate the scatter series for this event 
+                cur_series = ScatterSeries()
+                cur_series.add(GramsG4Entry(gamma))
+                for hit in range(scatters.shape[1]):
+                    cur_series.add(GramsG4Entry(scatters[:,hit]))
+                # If this series can be reconstructed, then add to the output
+                if (cur_series.reconstructable()):
+                    output_mctruth_series[(run,event)] = cur_series
+
         output_keys = list(output_mctruth_series.keys())
         for key in output_keys:
             output_tuple = output_mctruth_series[key].output_tuple()
-            output_energy_angle[key] = output_tuple    
+            output_energy_angle[key] = output_tuple
     return output_mctruth_series, output_energy_angle
 
 if __name__ == "__main__":
