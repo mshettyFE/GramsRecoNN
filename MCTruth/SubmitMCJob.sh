@@ -34,9 +34,7 @@ source config_vars.sh # add bash variables to this script
 IsSet Condor_OutputFolderPath
 IsSet Condor_NBatches
 
-sed -i '1d' 
-
-tar -czf  GramsSimWork.tar.gz  ../GramsSimWork
+tar -czf  ../GramsSimWork.tar.gz  ../GramsSimWork
 sed -i '$ d' CondorInfo.cmd # Remove last line
 echo "initialdir=${Condor_OutputFolderPath}" >> CondorInfo.cmd # add line specifying output directory
 condor_submit CondorInfo.cmd -queue $Condor_NBatches

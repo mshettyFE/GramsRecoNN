@@ -17,7 +17,7 @@
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file)
 [Condor.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/CondorTrain"
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
     constraint = "ValidFolder"
 
 ## Image Generation for CNN
