@@ -39,6 +39,7 @@ class SimpleCNN(nn.Module):
         super().__init__()
         self.EscapeStack = nn.Sequential(
 # feature extraction
+# https://madebyollin.github.io/convnet-calculator/ (Calculating intermediate layer of convolution)
             nn.Conv2d(1,6,5),
             nn.MaxPool2d(2,2),
             nn.Conv2d(6, 16, 5),
