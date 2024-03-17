@@ -12,12 +12,12 @@
 
 # Number of Batches to run on Condor
 [Condor.NBatches]
-    value = 2
+    value = 4000
     constraint = "SPosInt"
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file)
 [Condor.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train"
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
     constraint = "ValidFolder"
 
 ## Image Generation for CNN
@@ -67,7 +67,14 @@
 [TrainData.InputTrainingFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
     constraint = "ValidFolder"
+# Where validation files is located at
+[TrainData.InputValidationFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation" 
+    constraint = "ValidFolder"
 # Where are the .safetensors files with the test data
 [TrainData.InputTestFolderPath]
     value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
     constraint = "ValidFolder"
+[TrainData.ModelFile]
+    value = "OutputModel.safetensors"
+    constraint =  "NonEmptyString"

@@ -33,6 +33,26 @@ class SimpleNN(nn.Module):
     def forward(self,x):
         return self.EscapeStack(x)
 
+class SimpleCNN(nn.Module):
+# Bare-bones Neural Network Architecture for classification. Need to futzs around with this
+    def __init__(self, PixelCountX, PixelCountY):
+        super().__init__()
+        self.EscapeStack = nn.Sequential(
+# feature extraction
+            nn.Conv2d(1,6,5),
+            nn.MaxPool2d(2,2),
+            nn.Conv2d(6, 16, 5),
+            nn.MaxPool2d(2,2),
+# Classification
+            nn.Flatten(),
+            nn.Linear(256, 1),
+            nn.ReLU(),
+            nn.Sigmoid()
+        )
+
+    def forward(self,x):
+        return self.EscapeStack(x)
+
 @dataclass
 class History:
 # Stores data on how training is going on a epoch by epoch basis
@@ -134,7 +154,7 @@ class Trainer:
 # Create Net and send to proper device
         PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
         PixelCountY = int(parameters["GenData"]["PixelCountY"]["value"])
-        self.model = SimpleNN(PixelCountX,PixelCountY)
+        self.model = SimpleCNN(PixelCountX,PixelCountY)
         self.model.to(self.device)
 # Make PyTorch stop complaining about incompatibility between floats and doubles
         self.model.double()
@@ -171,9 +191,16 @@ class Trainer:
                     case _:
                         raise Exception("Undefined loss target")
                 voutputs = self.model(inpt).round()
-                for i in range(truth_labels.shape[0]):
-                    truth_level.append(truth_labels[i][0])
-                    predictions.append(voutputs[i][0])
+                if(type(self.model) == SimpleNN):
+                    for i in range(truth_labels.shape[0]):
+                        truth_level.append(truth_labels[i][0].item())
+                        predictions.append(voutputs[i][0])
+                elif(type(self.model) == SimpleCNN):
+                    for i in range(truth_labels.shape[0]):
+                        truth_level.append(truth_labels[i][0].item())
+                        predictions.append(voutputs[i][0])
+                else:
+                    raise Exception("Unimplemented model type")
         return (truth_level, predictions)
 
     def fit(self, logging=True):
@@ -230,12 +257,12 @@ class Plotter:
     def __init__(self):
         self.cmap = plt.get_cmap('GnBu')
     def plot_confusion_mat_scipy(self,predictions,truth, title):
-      cm = confusion_matrix(truth,predictions)
-      disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-      disp.plot()
-      plt.title(title)
-      plt.savefig(title+".png")
-      plt.close()
+        cm = confusion_matrix(truth,predictions)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot()
+        plt.title(title)
+        plt.savefig(title+".png")
+        plt.close()
     def plot_confusion_mat(self, predictions, truth, class_names = None,
         title="Confusion matrix", normalize=False, save=True):
         cm = confusion_matrix(truth,predictions)
@@ -290,7 +317,7 @@ if __name__ == "__main__":
     truth, pred = trainer.predict_all()
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
     temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
-    trainer.save_model(paras["GenData"]["ModelFile"]["value"])
+    trainer.save_model(paras["TrainData"]["ModelFile"]["value"])
 
 ## TODO
 # K-Cross fold validation
