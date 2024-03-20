@@ -20,36 +20,67 @@ from  TomlSanityCheck import TomlSanityCheck
 
 class SimpleNN(nn.Module):
 # Bare-bones Neural Network Architecture. Need to futzs around with this
-    def __init__(self, PixelCountX, PixelCountY):
+    def __init__(self, PixelCountX, PixelCountY, output="class"):
+        self.net_type = output.lower()
         super().__init__()
-        self.EscapeStack = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(in_features= PixelCountX*PixelCountY, out_features=512),
-            nn.ReLU(),
-            nn.Linear(512,1),
-            nn.Sigmoid()
-        )
+        if(self.net_type =="class"):
+            self.EscapeStack = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(in_features= PixelCountX*PixelCountY, out_features=512),
+                nn.ReLU(),
+                nn.Linear(512,1),
+                nn.Sigmoid()
+            )
+        elif(self.net_type == "energy"):
+            self.EscapeStack = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(in_features= PixelCountX*PixelCountY, out_features=512),
+                nn.ReLU(),
+                nn.Linear(512,1),
+            )
+        else:
+            raise Exception("Invalid output class")
 
     def forward(self,x):
         return self.EscapeStack(x)
 
 class SimpleCNN(nn.Module):
 # Bare-bones Neural Network Architecture for classification. Need to futzs around with this
-    def __init__(self, PixelCountX, PixelCountY):
+    def __init__(self, PixelCountX, PixelCountY, output="class"):
+        self.net_type = output.lower()
         super().__init__()
-        self.EscapeStack = nn.Sequential(
-# feature extraction
-# https://madebyollin.github.io/convnet-calculator/ (Calculating intermediate layer of convolution)
-            nn.Conv2d(1,6,5),
-            nn.MaxPool2d(2,2),
-            nn.Conv2d(6, 16, 5),
-            nn.MaxPool2d(2,2),
-# Classification
-            nn.Flatten(),
-            nn.Linear(256, 1),
-            nn.ReLU(),
-            nn.Sigmoid()
-        )
+        if(self.net_type=="class"):
+            self.EscapeStack = nn.Sequential(
+    # feature extraction
+    # https://madebyollin.github.io/convnet-calculator/ (Calculating intermediate layer of convolution)
+                nn.Conv2d(1,32,3),
+                nn.ReLU(),
+                nn.MaxPool2d(3,3),
+                nn.Conv2d(32, 16, 3),
+                nn.ReLU(),
+                nn.MaxPool2d(3,3),
+    # Classification
+                nn.Flatten(),
+                nn.Linear(64, 1),
+                nn.ReLU(),
+                nn.Sigmoid()
+            )
+        elif(self.net_type=="energy"):
+            self.EscapeStack = nn.Sequential(
+    # feature extraction
+    # https://madebyollin.github.io/convnet-calculator/ (Calculating intermediate layer of convolution)
+                nn.Conv2d(1,32,3),
+                nn.ReLU(),
+                nn.MaxPool2d(3,3),
+                nn.Conv2d(32, 16, 3),
+                nn.ReLU(),
+                nn.MaxPool2d(3,3),
+    # Classification
+                nn.Flatten(),
+                nn.Linear(64, 1)
+            )
+        else:
+            raise Exception("Invalid output class")
 
     def forward(self,x):
         return self.EscapeStack(x)
@@ -137,7 +168,7 @@ class HyperParameters:
 
 class Trainer:
 # Used to encapsulate the training loop of the Neural Net
-    def __init__(self, parameters,optimizer, loss_func, max_f=None):
+    def __init__(self, parameters,optimizer, loss_func, max_f=None, output_type="class"):
 # If you can run on GPU, do so.
         self.device = (
             "cuda"
@@ -155,7 +186,7 @@ class Trainer:
 # Create Net and send to proper device
         PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
         PixelCountY = int(parameters["GenData"]["PixelCountY"]["value"])
-        self.model = SimpleCNN(PixelCountX,PixelCountY)
+        self.model = SimpleNN(PixelCountX,PixelCountY,output_type)
         self.model.to(self.device)
 # Make PyTorch stop complaining about incompatibility between floats and doubles
         self.model.double()
@@ -170,13 +201,13 @@ class Trainer:
                                batch_size=self.args.batch_size, shuffle=False)
         self.training_history = History()
     
-    def predict_all(self, which_data="val", which_target="class"):
+    def predict_all(self, which_data="test"):
         data = None
         match which_data:
-            case "val":
-                data = self.val_data
             case "test":
                 data = self.test_data
+            case "val":
+                data = self.val_data
             case _:
                 raise Exception("Invalid Dataloader")
         predictions = []
@@ -186,22 +217,19 @@ class Trainer:
             for i, batch in enumerate(data):
                 inpt, lbls = batch
                 truth_labels = None
-                match which_target:
+                match self.model.net_type:
                     case "class":
+                        # Label denoting escape or all in event
                         truth_labels = lbls[:,:,2]
+                    case "energy":
+                        # 0 is energy of initial gamma ray
+                        truth_labels = lbls[:,:,0]
                     case _:
                         raise Exception("Undefined loss target")
                 voutputs = self.model(inpt).round()
-                if(type(self.model) == SimpleNN):
-                    for i in range(truth_labels.shape[0]):
-                        truth_level.append(truth_labels[i][0].item())
-                        predictions.append(voutputs[i][0])
-                elif(type(self.model) == SimpleCNN):
-                    for i in range(truth_labels.shape[0]):
-                        truth_level.append(truth_labels[i][0].item())
-                        predictions.append(voutputs[i][0])
-                else:
-                    raise Exception("Unimplemented model type")
+                for j in range(truth_labels.shape[0]):
+                    truth_level.append(truth_labels[j][0].item())
+                    predictions.append(voutputs[j][0])
         return (truth_level, predictions)
 
     def fit(self, logging=True):
@@ -306,7 +334,8 @@ if __name__ == "__main__":
         print(e)
         sys.exit()
     paras=  sanity_checker.return_config()
-    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss,5)
+    print(paras)
+    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),output_type=paras["TrainData"]["Target"]["value"])
     temp_plotter = Plotter()
     truth, pred = trainer.predict_all()
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
@@ -319,6 +348,3 @@ if __name__ == "__main__":
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
     temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
     trainer.save_model(paras["TrainData"]["ModelFile"]["value"])
-
-## TODO
-# K-Cross fold validation
