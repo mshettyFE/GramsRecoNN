@@ -156,7 +156,7 @@ class History:
                 plt.title('Accuracy over Epochs')
                 plt.savefig('AccuracyRecord.png')
             case _:
-                raise Exception("which must be either 'loss' or 'acc'")
+                raise Exception("which in History.plot() must be either 'loss' or 'acc'")
         plt.close()
 
 @dataclass
@@ -168,7 +168,7 @@ class HyperParameters:
 
 class Trainer:
 # Used to encapsulate the training loop of the Neural Net
-    def __init__(self, parameters,optimizer, loss_func, max_f=None, output_type="class"):
+    def __init__(self, parameters,optimizer, loss_func, max_f=None, output_type="class", model_type="simple"):
 # If you can run on GPU, do so.
         self.device = (
             "cuda"
@@ -186,7 +186,13 @@ class Trainer:
 # Create Net and send to proper device
         PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
         PixelCountY = int(parameters["GenData"]["PixelCountY"]["value"])
-        self.model = SimpleNN(PixelCountX,PixelCountY,output_type)
+        match model_type.lower().strip():
+            case "simple":
+                self.model = SimpleNN(PixelCountX,PixelCountY,output_type)
+            case "cnn":
+                self.model = SimpleCNN(PixelCountX,PixelCountY,output_type)
+            case _:
+                raise Exception("invalid model type")
         self.model.to(self.device)
 # Make PyTorch stop complaining about incompatibility between floats and doubles
         self.model.double()
@@ -243,7 +249,15 @@ class Trainer:
             for i,batch in enumerate(self.train_data):
                 inputs, labels = batch
 # Grab truth level labels (remember, output is Energy, Angle, Classification)
-                truth_labels = labels[:,:,2]
+                match self.model.net_type:
+                    case "class":
+                        # Label denoting escape or all in event
+                        truth_labels = labels[:,:,2]
+                    case "energy":
+                        # 0 is energy of initial gamma ray
+                        truth_labels = labels[:,:,0]
+                    case _:
+                        raise Exception("Undefined loss target")
                 inputs.to(self.device)
                 truth_labels.to(self.device)
 # Do the backpropagation
@@ -270,13 +284,20 @@ class Trainer:
                     voutputs = self.model(vinputs)
                     total += vtruth_labels.shape[0]
                     val_run_loss += self.loss(voutputs, vtruth_labels).item()
+                    if(self.model.net_type=="class"):
 # Round sigmoid output to nearest number, then compare to truth labels. Sum counts and add to correct
-                    correct += ( voutputs.round() == vtruth_labels).type(torch.float).sum().item()
+                        correct += ( voutputs.round() == vtruth_labels).type(torch.float).sum().item()
 # Update training history with data from current epoch
-            self.training_history.add_loss(train_running_loss, val_run_loss)
-            self.training_history.add_accuracy(correct/total)
+            if(self.model.net_type=="class"):
+                self.training_history.add_loss(train_running_loss, val_run_loss)
+                self.training_history.add_accuracy(correct/total)
+            else:
+                self.training_history.add_loss(train_running_loss, val_run_loss)
             if logging:
-                print("Epoch:", epoch,"Training: ", train_running_loss,"Validation: ", val_run_loss, "correct:", correct, "Percent:", correct/total)
+                    if(self.model.net_type=="class"):
+                        print("Epoch:", epoch,"Training: ", train_running_loss,"Validation: ", val_run_loss, "correct:", correct, "Percent:", correct/total)
+                    else:
+                        print("Epoch:", epoch,"Training: ", train_running_loss,"Validation: ", val_run_loss)
     def save_model(self, filename:str):
         save_model(self.model,filename)
     def load_model(self, filename: str):
@@ -335,7 +356,8 @@ if __name__ == "__main__":
         sys.exit()
     paras=  sanity_checker.return_config()
     print(paras)
-    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),output_type=paras["TrainData"]["Target"]["value"])
+    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
+                      output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
     temp_plotter = Plotter()
     truth, pred = trainer.predict_all()
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
@@ -343,7 +365,8 @@ if __name__ == "__main__":
     trainer.fit()
     trainer.training_history.dump()
     trainer.training_history.plot("loss")
-    trainer.training_history.plot("acc")
+    if(paras["TrainData"]["Target"]["value"].lower().strip()=="class"):
+        trainer.training_history.plot("acc")
     truth, pred = trainer.predict_all()
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
     temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")

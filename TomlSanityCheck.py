@@ -69,6 +69,8 @@ class TomlSanityCheck:
                         constraint = BooleanCheck(val)
                     case "TrainingTarget":
                         constraint = TrainingTarget(val)
+                    case "TrainingModel":
+                        constraint = TrainingModel(val)
                 if not constraint:
                     err_msg = "Constraint '"+constraint_name + "' is currently not defined."
                     err_msg += " Did you create a inherited class, and add the constraint to the above match statement?"
@@ -209,6 +211,15 @@ class TrainingTarget(TOMLParameterConstraint):
         super(TrainingTarget,self).__init__(parameter_value.lower().strip())
     def validate(self):
         if((self.value == "class") or (self.value == "energy")):
+            return True
+        else:
+            return False
+
+class TrainingModel(TOMLParameterConstraint):
+    def __init__(self, parameter_value):
+        super(TrainingModel,self).__init__(parameter_value.lower().strip())
+    def validate(self):
+        if((self.value == "simple") or (self.value == "cnn")):
             return True
         else:
             return False
