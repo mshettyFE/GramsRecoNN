@@ -1,0 +1,91 @@
+# Config File formatted as follows:
+
+# Each parameter is formatted like: [XXX.YYY] where XXX refers to the group of the parameter and YYY refers to the name of the parameter
+# Each parameter has exactly two key:value pairs.
+#   The first is the actual value of the parameter (a path, a number, a string etc.)
+#   The second is the sanity check/constraint on the parameter. See TomlSanityCheck.py for a current list of supported constraints
+
+# This is essentially a poor-mans version of the cue programming language (see https://cuelang.org/docs/usecases/validation/).
+# It works for the simple parsing that I am doing though. Also, toml is build into to Python as of 3.11 (I think), so I'm going with this.
+
+## Condor-Exclusive Parameters
+
+# Number of Batches to run on Condor
+[Condor.NBatches]
+    value = 4000
+    constraint = "SPosInt"
+
+# Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file)
+[Condor.OutputFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
+    constraint = "ValidFolder"
+
+## Image Generation for CNN
+
+[GenData.GramsSimWorkPath]
+    value="/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GramsSimWork"
+    constraint="ValidFolder"
+[GenData.GDMLPath]
+    value="/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/gdml"
+    constraint="ValidFolder"
+
+# Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
+[GenData.OutputFileBaseName]
+    value = "AnodeImagesTrain"
+    constraint = "NonEmptyString"
+# What Geometry of the detector to use. Currently only supports "cube" and "flat". Will possibly add "pGrams" later on.
+[GenData.Geometry]
+    value = "cube"
+    constraint = "DetectorGeometry"
+# The number of particles to generate with GramsSim. NOT the same as the number of Compton scatter series generated.
+[GenData.nparticles]
+    value = 20000
+    constraint = "SPosInt"
+# The number of Pixels along the X direction. PGrams has 30.
+[GenData.PixelCountX]
+    value = 30
+    constraint = "SPosInt"
+# The number of Pixels along the Y direction. PGrams has 30.
+[GenData.PixelCountY]
+    value = 30
+    constraint = "SPosInt"
+
+# TrainData. So far, these are just hyperparameters for the model.
+## Learning rate (ie. how big of a step along the gradient do you want to take)
+[TrainData.LearningRate]
+    value = 1e-2
+    constraint =  "SPosFloat"
+# How many events do you want to process in parallel
+[TrainData.NNBatchSize]
+    value = 128
+    constraint =  "SPosInt"
+# How many epochs do you want to do?
+[TrainData.EpochNum]
+    value = 10
+    constraint =  "SPosInt"
+# Where are the .safetensors files with the training data
+[TrainData.InputTrainingFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
+    constraint = "ValidFolder"
+# Where validation files is located at
+[TrainData.InputValidationFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation" 
+    constraint = "ValidFolder"
+# Where are the .safetensors files with the test data
+[TrainData.InputTestFolderPath]
+    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+    constraint = "ValidFolder"
+[TrainData.ModelFile]
+    value = "OutputModel.safetensors"
+    constraint =  "NonEmptyString"
+[TrainData.MaxFiles]
+    value =100
+    constraint = "SPosInt"
+[TrainData.Target]
+# Possible values are {"class", "energy"}
+    value="class"
+    constraint = "TrainingTarget"
+[TrainData.NetworkType]
+# Possible values are {"simple","cnn"}
+    value = "Simple"
+    constraint = "TrainingModel"
