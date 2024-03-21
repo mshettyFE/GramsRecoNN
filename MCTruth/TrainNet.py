@@ -5,6 +5,8 @@ from AnodePlaneDataset import AnodePlaneDataset
 import matplotlib.pyplot as plt
 import numpy as np
 
+import sparseconvnet as scn
+
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.model_selection import KFold
 
