@@ -8,6 +8,7 @@ import argparse
 
 # normal imports
 import numpy as np
+import matplotlib.pyplot as plt
 import sys,os, random,time
 
 # Add the directory above MCTruth to Python path. Needed to access TomlSanityCheck, which does data  validation on Config file
@@ -73,6 +74,7 @@ class GramsG4Entry:
 class ScatterSeries:
 # Stores a list of GramsG4Entries, and determines if the series is reconstructable with Compton Cone Method
     def __init__(self):
+        self.current_index = -1
         self.scatter_series = []
     def __repr__(self):
         count = 1
@@ -85,6 +87,16 @@ class ScatterSeries:
         return output
     def __len__(self):
         return len(self.scatter_series)
+    def __iter__(self):
+        self.current_index = -1
+        return self
+
+    def __next__(self):
+        self.current_index += 1
+        if self.current_index < len(self.scatter_series):
+            return self.scatter_series[self.current_index]
+        raise StopIteration
+
     def add(self,scatter: GramsG4Entry):
     # Python lets you do type annotations now, which is neat, and useful in this case since we really only want GramsG4Entries here
         self.scatter_series.append(scatter)
@@ -181,6 +193,37 @@ def ReadRoot(configuration, gramsg4_path):
             output_energy_angle[key] = output_tuple
     return output_mctruth_series, output_energy_angle
 
+def histogram_compton_energy(scatter_series, out_dir, event_type="phot"):
+    keys = list(scatter_series.keys())
+    all_in_outputs = []
+    escape_outputs = []
+    for key in keys:
+        scatters = scatter_series[key]
+        escape_type = scatters.escape_type()
+        for hit in scatters:
+            if (hit.process == event_type):
+                if(escape_type == 0):
+                    all_in_outputs.append(hit.energy-0.511) # subtract rest mass of electron
+                else:
+                    escape_outputs.append(hit.energy-0.511)
+    plt.hist(all_in_outputs, bins=100, color='skyblue', edgecolor='black')
+    plt.title("Photoabsorption for All In Events")
+    plt.xlabel("Energy")
+    plt.ylabel("Count")
+    home = os.getcwd()
+    os.chdir(out_dir)
+    plt.savefig("PhotAllInHistogram.png")    
+    os.chdir(home)
+
+    plt.hist(escape_outputs, bins=100, color='skyblue', edgecolor='black')
+    plt.title("Photoabsorption for Escape Events")
+    plt.xlabel("Energy")
+    plt.ylabel("Count")
+    home = os.getcwd()
+    os.chdir(out_dir)
+    plt.savefig("PhotEscapeHistogram.png")    
+    os.chdir(home)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
@@ -208,6 +251,7 @@ if __name__ == "__main__":
     #       this_script.py
 
     # Move up to parent directory
+    home = os.getcwd()
     os.chdir("../..")
     hm = os.getcwd()
     random.seed(time.time())
@@ -216,5 +260,4 @@ if __name__ == "__main__":
     # Run simulation, and generate tensors to pass to PyTorch
     gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-    keys = list(input_data.keys())
-    print(len(input_data[keys[0]]))
+    histogram_compton_energy(input_data,home)

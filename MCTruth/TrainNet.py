@@ -64,7 +64,6 @@ class SimpleCNN(nn.Module):
     # Classification
                 nn.Flatten(),
                 nn.Linear(64, 1),
-                nn.ReLU(),
                 nn.Sigmoid()
             )
         elif(self.net_type=="energy"):
@@ -260,8 +259,8 @@ class Trainer:
                         truth_labels = labels[:,:,0]
                     case _:
                         raise Exception("Undefined loss target")
-                inputs.to(self.device)
-                truth_labels.to(self.device)
+                inputs =inputs.to(self.device)
+                truth_labels =  truth_labels.to(self.device)
 # Do the backpropagation
                 outputs = self.model(inputs)
                 loss = self.loss(outputs, truth_labels)
@@ -283,6 +282,8 @@ class Trainer:
                 for i, vdata in enumerate(self.val_data):
                     vinputs, vlabels = vdata
                     vtruth_labels = vlabels[:,:,2]
+                    vinputs = vinputs.to(self.device)  
+                    vtruth_labels = vtruth_labels.to(self.device)
                     voutputs = self.model(vinputs)
                     total += vtruth_labels.shape[0]
                     val_run_loss += self.loss(voutputs, vtruth_labels).item()
@@ -297,7 +298,7 @@ class Trainer:
                 self.training_history.add_loss(train_running_loss, val_run_loss)
             if logging:
                     if(self.model.net_type=="class"):
-                        print("Epoch:", epoch,"Training: ", train_running_loss,"Validation: ", val_run_loss, "correct:", correct, "Percent:", correct/total)
+                        print("Epoch:", epoch,"Training: ", train_running_loss,"Validation: ", val_run_loss, "correct:", correct, "total: ",  total, "Percent:", correct/total)
                     else:
                         print("Epoch:", epoch,"Training: ", train_running_loss,"Validation: ", val_run_loss)
     def save_model(self, filename:str):

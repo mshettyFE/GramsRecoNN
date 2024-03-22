@@ -79,7 +79,7 @@
     value = "OutputModel.safetensors"
     constraint =  "NonEmptyString"
 [TrainData.MaxFiles]
-    value =100
+    value =100000
     constraint = "SPosInt"
 [TrainData.Target]
 # Possible values are {"class", "energy"}
@@ -87,5 +87,5 @@
     constraint = "TrainingTarget"
 [TrainData.NetworkType]
 # Possible values are {"simple","cnn"}
-    value = "Simple"
+    value = "cnn"
     constraint = "TrainingModel"
