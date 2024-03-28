@@ -178,6 +178,7 @@ class Trainer:
             if torch.backends.mps.is_available()
             else "cpu"
         )
+        print(self.device)
 # Cast Hyperparameters to the appropriate values
         self.args = HyperParameters(
             float(parameters["TrainData"]["LearningRate"]["value"]),
@@ -194,9 +195,9 @@ class Trainer:
                 self.model = SimpleCNN(PixelCountX,PixelCountY,output_type)
             case _:
                 raise Exception("invalid model type")
-        self.model.to(self.device)
 # Make PyTorch stop complaining about incompatibility between floats and doubles
         self.model.double()
+        self.model.to(self.device)
 # Construct optimizer, loss function, load in data, and create History buffer
         self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate)
         self.loss = loss_func()
@@ -233,6 +234,7 @@ class Trainer:
                         truth_labels = lbls[:,:,0]
                     case _:
                         raise Exception("Undefined loss target")
+                inpt = inpt.to(self.device)
                 voutputs = self.model(inpt).round()
                 for j in range(truth_labels.shape[0]):
                     truth_level.append(truth_labels[j][0].item())
@@ -310,6 +312,7 @@ class Plotter:
     def __init__(self):
         self.cmap = plt.get_cmap('GnBu')
     def plot_confusion_mat_scipy(self,predictions,truth, title):
+        predictions = [x.cpu() for x in predictions] # Transfer tensor from gpu to cpu
         cm = confusion_matrix(truth,predictions)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         disp.plot()

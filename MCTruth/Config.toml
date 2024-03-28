@@ -61,7 +61,7 @@
     constraint =  "SPosInt"
 # How many epochs do you want to do?
 [TrainData.EpochNum]
-    value = 10
+    value = 100
     constraint =  "SPosInt"
 # Where are the .safetensors files with the training data
 [TrainData.InputTrainingFolderPath]
