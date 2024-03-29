@@ -31,7 +31,7 @@ where ```$num``` is the unique run number for the output file. You can change th
 
 In fact, for your first run, you WILL need to fiddle with the Config.toml since some value are specific to Nevis/myself. It should be well-documented enough to make changes easily?
 
-If you are at Nevis, you can run the following in the MCTruth folder
+If you are at Nevis, you can run the following in the GenData folder
 ```
 ./SubmitMCJob.sh ../TomlSanityCheck.py Config.toml
 ```

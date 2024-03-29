@@ -47,6 +47,7 @@ IsSet GenData_GDMLPath
 IsSet GenData_nparticles
 IsSet GenData_Geometry
 IsSet GenData_OutputFileBaseName
+IsSet GenData_MCTruth
 
 OUTPUT_NAME_BASE="$GenData_OutputFolderPath/$GenData_OutputFileBaseName"
 

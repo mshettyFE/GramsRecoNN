@@ -29,6 +29,10 @@
     value="../gdml"
     constraint="ValidFolder"
 
+[GenData.MCTruth]
+    value=true
+    constraint="Boolean"
+
 # Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
 [GenData.OutputFileBaseName]
     value = "AnodeImagesTrain"
