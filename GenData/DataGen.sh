@@ -151,15 +151,23 @@ else
 fi
 
 if [ -z ${MCTRUTH} ]; 
-then
-cmd=(./gramsdetsim -s "$RUN_NUM" )
-if [ -z ${DRY_RUN} ];
-then 
-    echo "${cmd[@]}"
-    ./gramsdetsim -s "$RUN_NUM"
-else
-    echo "${cmd[@]}"
-fi
+    then
+        cmd=(./gramsdetsim -s "$RUN_NUM" )
+        if [ -z ${DRY_RUN} ];
+        then 
+            echo "${cmd[@]}"
+            ./gramsdetsim -s "$RUN_NUM"
+        else
+            echo "${cmd[@]}"
+        fi
+    cmd=(./gramsreadoutsim)
+    if [ -z ${DRY_RUN} ];
+    then 
+        echo "${cmd[@]}"
+        ./gramsreadoutsim
+    else
+        echo "${cmd[@]}"
+    fi
 fi
 
 cd $CUR_DIR
