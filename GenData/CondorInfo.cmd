@@ -1,5 +1,5 @@
 executable     = /nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/CondorSetup.sh
-transfer_input_files = /nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/CreateMCNNData.py,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/TomlSanityCheck.py,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GramsSimWork.tar.gz,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/Config.toml,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/gdml,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/DataGen.sh
+transfer_input_files = /nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/CreateData.py,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/TomlSanityCheck.py,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GramsSimWork.tar.gz,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/Config.toml,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/gdml,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/MCTruth/DataGen.sh
 
 
 arguments = $(Process)

@@ -2,7 +2,7 @@
 conda init
 conda activate "$CONDA_ENV_PATH"
 git submodule init
-git submodule update
+git submodule update --remote --merge
 rm -rf GramsSimWork
 mkdir GramsSimWork
 if [ $? -ne 0 ]

@@ -15,6 +15,7 @@ TOML_SANITY_CHECK_LOC=$1 #TomlSanityCheck.py path location. Used to validate Con
 TOML_FILE_LOC=$2 # .toml file containing arguments
 RUN_NUM=$3 # Seeds RNG. For generating actual data, just increment this for each run.
 DRY_RUN=$4 # Don't actually generate data yet. Only show variables and generation commands
+MCTRUTH=$5 # Generate MCTruth Data if anything present
 
 # Make sure that these variables are set to something
 IsSet TOML_SANITY_CHECK_LOC
@@ -112,20 +113,53 @@ else
     echo "${cmd[@]}"
 fi
 
+if [ -z ${MCTRUTH} ]; 
+then
+cmd=(./gramsdetsim -s "$RUN_NUM" )
+if [ -z ${DRY_RUN} ];
+then 
+    echo "${cmd[@]}"
+    ./gramsdetsim -s "$RUN_NUM"
+else
+    echo "${cmd[@]}"
+fi
+fi
+
+# I could use gramsreadoutsim here for the pixellation, but that requires knowing the pixel size, which I can't calculate easily in this measy shell script
+# So I'm just skipping GramsRecoSim, and do the pixellation in the python script
+# This is very much a stopgap measure, since this will eventually run into issues when you need to convert GramsElecSim to .safetensors
+
 cd $CUR_DIR
 
 if [ -z ${DRY_RUN} ]; 
-then python CreateMCNNData.py $TOML_FILE_LOC -r "$RUN_NUM";
+then python CreateData.py $TOML_FILE_LOC -r "$RUN_NUM";
 fi 
 
+: '
+if [ -z ${DRY_RUN} ]; 
+then
+echo "Removing Temp Files"
 cd $GenData_GramsSimWorkPath
 
 OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
 OUTPUT_FILE_LOC+="/gramsg4.root"
 echo $OUTPUT_FILE_LOC
 rm $OUTPUT_FILE_LOC
+
 OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
 OUTPUT_FILE_LOC+="/${GRAMSSKY_OUTPUT}"
 echo $OUTPUT_FILE_LOC
 rm $OUTPUT_FILE_LOC
+
+OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
+OUTPUT_FILE_LOC+="/gramsdetsim.root"
+echo $OUTPUT_FILE_LOC
+rm $OUTPUT_FILE_LOC
+
+OUTPUT_FILE_LOC="${GenData_GramsSimWorkPath}"
+OUTPUT_FILE_LOC+="/gramsreadoutsim.root"
+echo $OUTPUT_FILE_LOC
+rm $OUTPUT_FILE_LOC
+fi
+'
 conda deactivate

@@ -1,16 +1,23 @@
 # Takes in GramsG4 File, extracts Compton scatters from data, suppresses z axis information and pixellates data on AnodePlane to form image, and then write to disk
-# To read config files
+
+# NOTE: To whomever has to pick this up again. This script was made during Spring 2024.
+# NOTE: This is prior to the restructuring of the ROOT file outputs that Bill is planning
+# NOTE: If you are futzing around with this code after the aforementioned change, This script WILL NOT WORK
+# NOTE: In order to refactor this code to be compatible with that future change, I suggest doing the following
+# NOTE: 1. Create example output files of this script using a fixed seed for the GramsSim executable PRIOR to the big change
+# NOTE: SHA hash of last working commit is b93ca43f65d3f247b0b65a49781460e48df53752
+# NOTE: 2. Update the GramsSim submodule to the latest version
+# NOTE: 3. Modify this file so that the new output of the GramsSim code matches the old output (The file sizes should be about the same size)
+# NOTE: This will enable you to make sure that you haven't royally screwed anything up
+# NOTE: If Bill hasn't mentioned anything about "the big change", then feel free to ignore this blob. The script works just fine
+
+
 import toml
-# Reading ROOT
 import uproot
-# Convert from numpy to pytorch tensor
 from torch import from_numpy
-# save to .safetensor file
 from safetensors.torch import save_file
-# command line parsing
 import argparse
 
-# normal imports
 import numpy as np
 import sys,os, random,time
 
@@ -215,7 +222,7 @@ def TrackInfoIndex(label:str):
     return out
 
 
-def ReadRoot(configuration, gramsg4_path):
+def ReadG4Root(configuration, gramsg4_path):
     output_mctruth_series = {}
     output_energy_angle = {}
     # Open up root file and get TrackInfo TTree
@@ -267,6 +274,7 @@ def ReadRoot(configuration, gramsg4_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
+    parser.add_argument("-m", "--MCTruth",help="Generate MCTruth Data. Omit flag to generate GramsDetSim data", action="store_true")
     parser.add_argument("-r", '--RunID', help="Job ID. Seeds RNG", type=int, default = 0)
     parser.add_argument("-d", '--Debug',help="debug flag",action='store_true')
     args = parser.parse_args()
@@ -274,6 +282,7 @@ if __name__ == "__main__":
     # Add Batch number to configuration dictionary. Read from command line for easier interfacing with condor
     sanity_checker.config_file["GenData"]["RunID"]=  {"value": int(args.RunID),  "constraint":"PosInt"}
     sanity_checker.config_file["GenData"]["Debug"]=  {"value": args.Debug,  "constraint":"Boolean"}
+    sanity_checker.config_file["GenData"]["MCTruth"]=  {"value": args.MCTruth,  "constraint":"Boolean"}
     # Make sure that config file has sane parameters that satisfy the constraints
     try:
         sanity_checker.validate()
@@ -288,22 +297,25 @@ if __name__ == "__main__":
     # .
     #   /GramsSimWork
     #   /MCTruth
-    #       CreateMCNNData.py
+    #       CreateData.py
     # Move up to parent directory
     os.chdir("..")
     hm = os.getcwd()
     random.seed(time.time())
     output_tensor = {}
     meta = {}
-    # Run simulation, and generate tensors to pass to PyTorch
-    gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
-    input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-    new = CreateTensor(GramsConfig, input_data, output_data,GramsConfig["GenData"]["RunID"]["value"])
-    output_tensor.update(new)
-# Add to meta data how many images were generated in each run for a given batch
-    first = list(new.keys())[0]
-    meta[str(GramsConfig["GenData"]["RunID"]["value"])] = str(new[first].shape[0])
-    if (GramsConfig["GenData"]["Debug"]["value"]):
-        print(meta)
-    fname = os.path.join(GramsConfig["Condor"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["RunID"]["value"])+".safetensors")
-    save_file(output_tensor,fname, metadata=meta)
+    if (GramsConfig["GenData"]["MCTruth"]["value"]):
+        # Run simulation, and generate tensors to pass to PyTorch
+        gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
+        input_data, output_data = ReadG4Root(GramsConfig, gramsg4_file)
+        new = CreateTensor(GramsConfig, input_data, output_data,GramsConfig["GenData"]["RunID"]["value"])
+        output_tensor.update(new)
+    # Add to meta data how many images were generated in each run for a given batch
+        first = list(new.keys())[0]
+        meta[str(GramsConfig["GenData"]["RunID"]["value"])] = str(new[first].shape[0])
+        if (GramsConfig["GenData"]["Debug"]["value"]):
+            print(meta)
+        fname = os.path.join(GramsConfig["Condor"]["OutputFolderPath"]["value"],GramsConfig["GenData"]["OutputFileBaseName"]["value"]+"_"+str(GramsConfig["GenData"]["RunID"]["value"])+".safetensors")
+        save_file(output_tensor,fname, metadata=meta)
+    else:
+        print("GramsDetSim data generation unimplemented... for now")
