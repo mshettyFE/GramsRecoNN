@@ -11,21 +11,58 @@ function IsSet(){
     echo "$1 = ${!1}"
 }
 
-TOML_SANITY_CHECK_LOC=$1 #TomlSanityCheck.py path location. Used to validate Config file
-TOML_FILE_LOC=$2 # .toml file containing arguments
-RUN_NUM=$3 # Seeds RNG. For generating actual data, just increment this for each run.
-DRY_RUN=$4 # Don't actually generate data yet. Only show variables and generation commands
-MCTRUTH=$5 # Generate MCTruth Data if anything present
+TOML_SANITY_CHECK_LOC=""
+TOML_FILE_LOC=""
+RUN_NUM=""
+DRY_RUN=""
+MCTRUTH=""
 
-# Make sure that these variables are set to something
+while getopts ":s:f:r:dmh" opt; do
+  case $opt in
+    h)
+        echo "DataGen.sh"
+        echo "-s [SanityCheckLoc]: Location of TomlSanityCheck.py (required)"
+        echo "-f [TomlFileLoc]: Location of Config.toml (required)"
+        echo "-r [RNGSeed]: RNG Seed of run (required)"
+        echo "-d [Dry Run Flag]: Don't do any computation. Just print out bash commands"
+        echo "-m [MCTruth Flag]: Generate MC Truth data"
+        echo "-h [Help]: Print this message"
+        exit 1
+        ;;
+    s)
+        TOML_SANITY_CHECK_LOC=$OPTARG
+        ;;
+    f)
+        TOML_FILE_LOC=$OPTARG
+        ;;
+    r)
+      RUN_NUM=$OPTARG
+      if ! [[ $RUN_NUM =~ ^[\-0-9]+$ ]] || !(( RUN_NUM >= 0)); # Regex. Checks for an integer in first half, then checks if RUN_ID is at least 0
+      then
+        echo "Invalid Run ID: "$RUN_NUM
+        exit
+      fi
+      ;;
+    d)
+      DRY_RUN="SET"
+      ;;
+    m)
+      MCTRUTH="SET"
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
 IsSet TOML_SANITY_CHECK_LOC
 IsSet TOML_FILE_LOC
-
-if ! [[ $RUN_NUM =~ ^[\-0-9]+$ ]] || !(( RUN_NUM >= 0)); # Regex. Checks for an integer in first half, then checks if RUN_ID is at least 0
-then
-    echo "Invalid Run ID: "$RUN_NUM
-    exit
-fi
+IsSet RUN_NUM
 
 # set up enviornment
 conda activate $CONDA_ENV_PATH
@@ -125,15 +162,17 @@ else
 fi
 fi
 
-# I could use gramsreadoutsim here for the pixellation, but that requires knowing the pixel size, which I can't calculate easily in this measy shell script
-# So I'm just skipping GramsRecoSim, and do the pixellation in the python script
-# This is very much a stopgap measure, since this will eventually run into issues when you need to convert GramsElecSim to .safetensors
-
 cd $CUR_DIR
 
-if [ -z ${DRY_RUN} ]; 
-then python CreateData.py $TOML_FILE_LOC -r "$RUN_NUM";
+if [ -z ${DRY_RUN} ];
+then
+if [ -z ${MCTRUTH} ]; 
+then
+    python CreateData.py $TOML_FILE_LOC -r "$RUN_NUM";
+else
+    python CreateData.py $TOML_FILE_LOC -r "$RUN_NUM" -m;
 fi 
+fi
 
 : '
 if [ -z ${DRY_RUN} ]; 

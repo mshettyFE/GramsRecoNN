@@ -25,7 +25,7 @@ export CONDA_ENV_PATH=""YOUR_CONDA_ENV_PATH_HERE"
 # Generating Data
 If you want to generate more MCTruth training data run the following command in the MCTruth folder
 ```
-./DataGen.sh ../TomlSanityCheck.py Config.toml $num
+./DataGen.sh  -s ../TomlSanityCheck.py -f  Config.toml -r $num -m
 ```
 where ```$num``` is the unique run number for the output file. You can change the output directory in the GenData header in Config.toml file under the GenData directory. You can also fiddle with other parameters if you like.
 

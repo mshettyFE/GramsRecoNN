@@ -11,5 +11,5 @@ fi
 
 for ((i = 0 ; i <= $max_batches ; i++ ));
 do
-./DataGen.sh ../TomlSanityCheck.py Config.toml "$i"
+./DataGen.sh  -s ../TomlSanityCheck.py -f  Config.toml -r $i -m
 done
