@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from AnodePlaneDataset import AnodePlaneDataset
 import matplotlib.pyplot as plt
 import numpy as np
@@ -201,12 +201,12 @@ class Trainer:
 # Construct optimizer, loss function, load in data, and create History buffer
         self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate)
         self.loss = loss_func()
-        self.train_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"], max_files=max_f),
-                                 batch_size=self.args.batch_size, shuffle=True)
-        self.val_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"], max_files=max_f),
-                              batch_size=self.args.batch_size, shuffle=False)
-        self.test_data = DataLoader(AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"], max_files=max_f),
-                               batch_size=self.args.batch_size, shuffle=False)
+        train_dataset = AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"], max_files=max_f)
+        val_dataset = AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"], max_files=max_f)
+        test_dataset = AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"], max_files=max_f)
+        self.train_data = DataLoader(train_dataset, sampler=WeightedRandomSampler(weights=train_dataset.emit_weight_map_data()[0],num_samples=len(train_dataset),replacement=True),batch_size=self.args.batch_size)
+        self.val_data = DataLoader(val_dataset,batch_size=self.args.batch_size)
+        self.test_data = DataLoader(test_dataset,batch_size=self.args.batch_size)
         self.training_history = History()
     
     def predict_all(self, which_data="test"):

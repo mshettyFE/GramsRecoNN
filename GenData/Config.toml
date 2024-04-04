@@ -57,7 +57,7 @@
 # TrainData. So far, these are just hyperparameters for the model.
 ## Learning rate (ie. how big of a step along the gradient do you want to take)
 [TrainData.LearningRate]
-    value = 1e-2
+    value = 1e-3
     constraint =  "SPosFloat"
 # How many events do you want to process in parallel
 [TrainData.NNBatchSize]
@@ -83,7 +83,7 @@
     value = "OutputModel.safetensors"
     constraint =  "NonEmptyString"
 [TrainData.MaxFiles]
-    value =100000
+    value =1000000
     constraint = "SPosInt"
 [TrainData.Target]
 # Possible values are {"class", "energy"}

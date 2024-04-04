@@ -30,7 +30,6 @@ from  TomlSanityCheck import TomlSanityCheck
 TrackInfo_keys = ['Etot', 'Event', 'PDGCode', 'ParentID', 'ProcessName', 'Run', 'TrackID', 'identifier', 'px', 'py', 'pz', 't', 'x', 'y', 'z']
 TrackInfo_keys_map = {k:v for k,v in zip(TrackInfo_keys,range(len(TrackInfo_keys)))}
 
-
 class Position:
 # Very bare bones R^3 vector. Supports addition, subtraction, L2 norm and dot product, which are the only operations I can about for Scatter Series Reconstruction
 # Effectively a Wrapper around numpy, but converts gramsg4 truth tuple info into Python object
@@ -256,7 +255,7 @@ def ReadG4Root(configuration, gramsg4_path):
                 # package the data into a single numpy array
                 scatters = np.stack(scatters)
                 gamma = np.concatenate(gamma)
-                # Generate the scatter series for this event 
+                # Generate the scatter series for this event
                 cur_series = ScatterSeries()
                 cur_series.add(GramsG4Entry(gamma))
                 for hit in range(scatters.shape[1]):

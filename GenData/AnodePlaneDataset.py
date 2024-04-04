@@ -8,6 +8,7 @@
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms as TRANS
 import matplotlib.pyplot as plt
 import numpy as np
 from safetensors.torch import safe_open
@@ -22,11 +23,18 @@ def extract_safetensor_paths(folder_name):
                 yield os.path.join(folder_name,file)
 
 class AnodePlaneDataset(Dataset):
-    def __init__(self,dataset_folder, verbose = False, max_files=None):
+    def __init__(self,dataset_folder, verbose = False, max_files=None, 
+#                 transform=None):
+                 transform=TRANS.Compose([TRANS.RandomHorizontalFlip(), TRANS.RandomVerticalFlip()])):
 # dataset_folder (filepath): a folder consisting entirely of .safetensor files. Need 2 seperate folders for Test and Train
 # verbose (bool): print out stuff
 # max_files (positive int): set a limit on the number of files to read. Used to select the first N files in a folder (say if you want to debug stuff and don't need to generate the entire mapping)
-
+# transform (pytorch transformations): list of torchvision transformations to apply. Defaults to random flips along x/y axis
+# parameters used to construct weight map
+        self.total_escape = 0
+        self.total_all_in = 0
+        self.weight_map = []
+        self.transform = transform
 # prefixes for tensor names in .safetensors file
         self.input_name = "input_anode_images"
         self.output_name = "output_anode_images"
@@ -62,9 +70,22 @@ class AnodePlaneDataset(Dataset):
                     raise Exception("Number of events don't match in file "+fpath)
 # Add the fpath, input tensor name, output tensor name, and event number to the map, then increment global_id
                 for event in range(input_data_n_events):
+                    event_classification = output_data[event,0,2]
+# Keep track of total number of escape and all_in events
+                    if(event_classification==1):
+                        self.total_escape += 1
+                        self.weight_map.append(1)
+                    elif (event_classification==0):
+                        self.total_all_in += 1
+                        self.weight_map.append(0)
+                    else:
+                        raise Exception("Unknown escape class")
                     self.index_mapping[global_index] = (fpath, event)
                     global_index += 1
 # Global_index at this point equals the the total number of events across all the .safetensor files in the directory
+        if(self.total_all_in==0 or self.total_escape==0 or len(self.weight_map)==0):
+            raise Exception("Couldn't generate weight map since either no all in events or no escape events")
+        self.weight_map = [1.0/self.total_escape if (event_type==1) else 1.0/self.total_all_in for event_type in self.weight_map]
         self.total_images = global_index
     def __len__(self):
         return self.total_images
@@ -82,7 +103,12 @@ class AnodePlaneDataset(Dataset):
         with safe_open(target_path, framework="pt") as f:
             input_data = f.get_tensor(self.input_name)[target_event,:,:]
             output_data = f.get_tensor(self.output_name)[target_event,:,:]
+        if self.transform:
+            input_data = self.transform(input_data)
         return (input_data, output_data)
+# Get the weight mapping of the recorded events, total_all_in and total_escape
+    def emit_weight_map_data(self):
+        return (self.weight_map, self.total_all_in, self.total_escape)
     def plot(self,index):
 # Utility function to plot an input anode plane image
         data = self.__getitem__(index)
@@ -126,5 +152,5 @@ def truth_level_class_pics(anodeDataset,verbose = False, plot=True, display_esca
     return (AllIn, Escape)
 
 if __name__ == "__main__":
-    ad = AnodePlaneDataset("/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train/temp")
-    truth_level_class_pics(ad,True, True, False)
+    ad = AnodePlaneDataset("/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation/",max_files=2)
+#    truth_level_class_pics(ad,True, True, False)
