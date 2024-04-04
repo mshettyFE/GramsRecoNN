@@ -31,7 +31,11 @@ class AnodePlaneDataset(Dataset):
 # max_files (positive int): set a limit on the number of files to read. Used to select the first N files in a folder (say if you want to debug stuff and don't need to generate the entire mapping)
 # transform (pytorch transformations): list of torchvision transformations to apply. Defaults to random flips along x/y axis
 # parameters used to construct weight map
+# Number of escape events, and their average energy
         self.total_escape = 0
+        self.avg_energy_escape = 0
+# Number of all in events, and their average energy
+        self.avg_energy_all_in = 0
         self.total_all_in = 0
         self.weight_map = []
         self.transform = transform
@@ -71,12 +75,15 @@ class AnodePlaneDataset(Dataset):
 # Add the fpath, input tensor name, output tensor name, and event number to the map, then increment global_id
                 for event in range(input_data_n_events):
                     event_classification = output_data[event,0,2]
+                    energy = output_data[event,0,0]
 # Keep track of total number of escape and all_in events
                     if(event_classification==1):
                         self.total_escape += 1
+                        self.avg_energy_escape += energy
                         self.weight_map.append(1)
                     elif (event_classification==0):
                         self.total_all_in += 1
+                        self.avg_energy_all_in += energy
                         self.weight_map.append(0)
                     else:
                         raise Exception("Unknown escape class")
@@ -86,6 +93,8 @@ class AnodePlaneDataset(Dataset):
         if(self.total_all_in==0 or self.total_escape==0 or len(self.weight_map)==0):
             raise Exception("Couldn't generate weight map since either no all in events or no escape events")
         self.weight_map = [1.0/self.total_escape if (event_type==1) else 1.0/self.total_all_in for event_type in self.weight_map]
+        self.avg_energy_all_in = self.avg_energy_all_in/self.total_all_in
+        self.avg_energy_escape = self.avg_energy_escape/self.total_escape
         self.total_images = global_index
     def __len__(self):
         return self.total_images
@@ -106,9 +115,9 @@ class AnodePlaneDataset(Dataset):
         if self.transform:
             input_data = self.transform(input_data)
         return (input_data, output_data)
-# Get the weight mapping of the recorded events, total_all_in and total_escape
+# Get the weight mapping of the recorded events, total_all_in, total_escape, average energy of all in, and average energy of escape
     def emit_weight_map_data(self):
-        return (self.weight_map, self.total_all_in, self.total_escape)
+        return (self.weight_map, self.total_all_in, self.total_escape, self.avg_energy_all_in, self.avg_energy_escape)
     def plot(self,index):
 # Utility function to plot an input anode plane image
         data = self.__getitem__(index)

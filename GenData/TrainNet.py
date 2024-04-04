@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, WeightedRandomSampler
+from scipy.stats import ks_2samp
 from AnodePlaneDataset import AnodePlaneDataset
 import matplotlib.pyplot as plt
 import numpy as np
@@ -167,6 +168,16 @@ class HyperParameters:
     batch_size: int
     epoch_num: int
 
+@dataclass
+# Store the average energies of the Training, Validation, and Test for all in and escape
+class Average_Energies:
+    train_all_in: float
+    train_escape: float
+    validate_all_in: float
+    validate_escape: float
+    test_all_in: float
+    test_escape: float
+
 class Trainer:
 # Used to encapsulate the training loop of the Neural Net
     def __init__(self, parameters,optimizer, loss_func, max_f=None, output_type="class", model_type="simple"):
@@ -202,8 +213,16 @@ class Trainer:
         self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate)
         self.loss = loss_func()
         train_dataset = AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"], max_files=max_f)
+        train_avg_energies = (train_dataset.avg_energy_all_in, train_dataset.avg_energy_escape)
         val_dataset = AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"], max_files=max_f)
+        val_avg_energies = (val_dataset.avg_energy_all_in, val_dataset.avg_energy_escape)
         test_dataset = AnodePlaneDataset(parameters["TrainData"]["InputTestFolderPath"]["value"], max_files=max_f)
+        test_avg_energies = (test_dataset.avg_energy_all_in, test_dataset.avg_energy_escape)
+        self.avg_energies = Average_Energies(
+            train_avg_energies[0], train_avg_energies[1],
+            val_avg_energies[0], val_avg_energies[1],
+            test_avg_energies[0], test_avg_energies[1],
+        )
         self.train_data = DataLoader(train_dataset, sampler=WeightedRandomSampler(weights=train_dataset.emit_weight_map_data()[0],num_samples=len(train_dataset),replacement=True),batch_size=self.args.batch_size)
         self.val_data = DataLoader(val_dataset,batch_size=self.args.batch_size)
         self.test_data = DataLoader(test_dataset,batch_size=self.args.batch_size)
@@ -229,16 +248,21 @@ class Trainer:
                     case "class":
                         # Label denoting escape or all in event
                         truth_labels = lbls[:,:,2]
+                        inpt = inpt.to(self.device)
+                        voutputs = self.model(inpt).round()
+                        for j in range(truth_labels.shape[0]):
+                            truth_level.append(truth_labels[j][0].item())
+                            predictions.append(voutputs[j][0])
                     case "energy":
                         # 0 is energy of initial gamma ray
                         truth_labels = lbls[:,:,0]
+                        inpt = inpt.to(self.device)
+                        voutputs = self.model(inpt)
+                        for j in range(truth_labels.shape[0]):
+                            truth_level.append(truth_labels[j][0].item())
+                            predictions.append(voutputs[j][0])
                     case _:
                         raise Exception("Undefined loss target")
-                inpt = inpt.to(self.device)
-                voutputs = self.model(inpt).round()
-                for j in range(truth_labels.shape[0]):
-                    truth_level.append(truth_labels[j][0].item())
-                    predictions.append(voutputs[j][0])
         return (truth_level, predictions)
 
     def fit(self, logging=True):
@@ -315,6 +339,7 @@ class Plotter:
         predictions = [x.cpu() for x in predictions] # Transfer tensor from gpu to cpu
         cm = confusion_matrix(truth,predictions)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        plt.clf()
         disp.plot()
         plt.title(title)
         plt.savefig(title+".png")
@@ -322,6 +347,7 @@ class Plotter:
     def plot_confusion_mat(self, predictions, truth, class_names = None,
         title="Confusion matrix", normalize=False, save=True):
         cm = confusion_matrix(truth,predictions)
+        plt.clf()
         plt.figure(figsize=(8, 6))
         plt.imshow(cm, interpolation="nearest", cmap=self.cmap, vmin=0, vmax=1)
         plt.title(title)
@@ -345,10 +371,37 @@ class Plotter:
                 plt.text(j, i, "{:,}".format(cm[i, j]),
                     horizontalalignment="center",
                     color="white" if cm[i, j] > thresh else "black")
-
         plt.tight_layout()
         plt.ylabel('True label', fontsize=15)
         plt.xlabel('Predicted label', fontsize=15)
+    def plot_regression_scatter(self,predictions,truth, title):
+        predictions = np.array([x.cpu() for x in predictions]) # Transfer tensor from gpu to cpu
+        MSE_Error = sum(np.abs(predictions-truth))
+        plt.clf()
+        plt.scatter(truth, predictions)
+        plt.plot(truth, truth, color = 'red')
+        plt.xlabel("Truth Gamma Energy")
+        plt.ylabel("Prediction Gamma Energy")
+        plt.title(title+" MSE_Error="+str(MSE_Error))
+        plt.savefig(title+".png")
+        plt.close()
+    def plot_regression_histograms(self, predictions, truth,title):
+        predictions = np.array([x.cpu() for x in predictions]) # Transfer tensor from gpu to cpu
+        MSE_Error = sum(np.abs(predictions-truth))
+        plt.clf()
+        plt.hist(truth,bins=100)
+        plt.xlabel("Truth Gamma Energy")
+        plt.ylabel("Count")
+        plt.title(title+" MSE_Error="+str(MSE_Error))
+        plt.savefig(title+":Hist:Truth.png")
+        plt.close()
+        plt.hist(predictions, bins=100)
+        plt.xlabel("Truth Gamma Energy")
+        plt.ylabel("Count")
+        KS_test_stat, KS_test_p_val = ks_2samp(truth, predictions)
+        plt.title(title+" Stat:"+str(KS_test_stat)+" Pval"+str(KS_test_p_val))
+        plt.savefig(title+":Hist:Pred.png")
+        plt.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='TrainNet')
@@ -362,18 +415,32 @@ if __name__ == "__main__":
         sys.exit()
     paras=  sanity_checker.return_config()
     print(paras)
-    trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
-                      output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
-    temp_plotter = Plotter()
-    truth, pred = trainer.predict_all()
 #    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
-    temp_plotter.plot_confusion_mat_scipy(pred, truth, "Prior to Training")
+    if(paras["TrainData"]["Target"]["value"].lower().strip()=="class"):
+        trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
+                        output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
+        temp_plotter = Plotter()
+        truth, pred = trainer.predict_all()
+        temp_plotter.plot_confusion_mat_scipy(pred, truth, "Prior to Training")
+    elif(paras["TrainData"]["Target"]["value"].lower().strip()=="energy"):
+        trainer = Trainer(paras, torch.optim.Adam, nn.MSELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
+                        output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
+        temp_plotter = Plotter()
+        truth, pred = trainer.predict_all()
+        temp_plotter.plot_regression_scatter(pred,truth, "Prior to Training")
+        temp_plotter.plot_regression_histograms(pred,truth,"Prior to Training")
+    else:
+        raise Exception("Invalid initial class")
     trainer.fit()
     trainer.training_history.dump()
     trainer.training_history.plot("loss")
+    truth, pred = trainer.predict_all()
     if(paras["TrainData"]["Target"]["value"].lower().strip()=="class"):
         trainer.training_history.plot("acc")
-    truth, pred = trainer.predict_all()
-#    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
-    temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
+        temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
+    elif(paras["TrainData"]["Target"]["value"].lower().strip()=="energy"):
+        temp_plotter.plot_regression_scatter(pred,truth, "After Training")
+        temp_plotter.plot_regression_histograms(pred,truth,"After Training")
+    else:
+        raise Exception("Invalid prediction task")
     trainer.save_model(paras["TrainData"]["ModelFile"]["value"])
