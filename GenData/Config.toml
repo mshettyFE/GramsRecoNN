@@ -17,7 +17,7 @@
 
 # Output path where the Training and Testing input images and output classifications are stored at (both input and output stored in a single file)
 [Condor.OutputFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation"
+    value = "/nevis/milne/files/ms6556/RiversideData/GramsMLRecoData/TEMP"
     constraint = "ValidFolder"
 
 ## Image Generation for CNN
@@ -30,7 +30,7 @@
     constraint="ValidFolder"
 
 [GenData.MCTruth]
-    value=true
+    value=false
     constraint="Boolean"
 
 # Name of output file. "_${batch_id}.safetensors" gets appended to the end of this. ${batch_id} comes from the command line
@@ -69,15 +69,15 @@
     constraint =  "SPosInt"
 # Where are the .safetensors files with the training data
 [TrainData.InputTrainingFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Train" 
+    value = "/nevis/milne/files/ms6556/RiversideData/GramsMLRecoData/Train" 
     constraint = "ValidFolder"
 # Where validation files is located at
 [TrainData.InputValidationFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Validation" 
+    value = "/nevis/milne/files/ms6556/RiversideData/GramsMLRecoData/Validation" 
     constraint = "ValidFolder"
 # Where are the .safetensors files with the test data
 [TrainData.InputTestFolderPath]
-    value = "/nevis/milne/files/ms6556/BleekerData/GramsMLRecoData/Test"
+    value = "/nevis/milne/files/ms6556/RiversideData/GramsMLRecoData/Test"
     constraint = "ValidFolder"
 [TrainData.ModelFile]
     value = "OutputModel.safetensors"
