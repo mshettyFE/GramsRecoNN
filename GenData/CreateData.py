@@ -93,7 +93,7 @@ class GramsReadoutEntry:
             raise Exception("This hit cannot be reconstructed")
         self.position = Position(dataframe[ReadoutIndex('x')],dataframe[ReadoutIndex('y')],dataframe[ReadoutIndex('z')])
         self.time = dataframe[ReadoutIndex('timeAtAnode')]
-        self.energy = dataframe[ReadoutIndex('energy')]*dataframe[ReadoutIndex('numElectrons')] # Multiple energy (per cluster) by the number of electron clusters to get total energy
+        self.energy = sum(dataframe[ReadoutIndex('energy')]) # Multiple energy (per cluster) by the number of electron clusters to get total energy
         self.identifier = dataframe[ReadoutIndex('identifier')]
         self.pixel_indices = (int(dataframe[ReadoutIndex('pixel_idx')]),int(dataframe[ReadoutIndex('pixel_idy')]))
 
@@ -372,9 +372,7 @@ def ReadReadoutSim(GramsConfig,readout_file,gramsg4_output_series):
             data['x'][i] = data['x'][i][0]
             data['y'][i] = data['y'][i][0]
             data['z'][i] = data['z'][i][0]
-            # Grab Last entry in energy and numElectrons vectors (seems to be the right value, since the rest are fixed to some integer)
-            data['energy'][i] = data['energy'][i][-1]
-            data['numElectrons'][i] = data['numElectrons'][i][-1]
+            # Take sum of energy array as energy of event
             # Add an offset to pixel ID. GramsReadoutSim maps pixels from [-(PixelCountX/2), (PixelCountX/2)]
             # Python indexing doesn't treat negatives properly with this map, so we right shift everything so that the lower bound is 0;
             data['pixel_idx'][i] = data['pixel_idx'][i][0]+ np.floor(PixelCountX/2)
