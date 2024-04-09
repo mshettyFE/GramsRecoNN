@@ -64,6 +64,7 @@ class SimpleCNN(nn.Module):
                 nn.MaxPool2d(3,3),
     # Classification
                 nn.Flatten(),
+                nn.Dropout(),
                 nn.Linear(64, 1),
                 nn.Sigmoid()
             )
@@ -167,6 +168,7 @@ class HyperParameters:
     learning_rate: float
     batch_size: int
     epoch_num: int
+    L2_regularization: float
 
 @dataclass
 # Store the average energies of the Training, Validation, and Test for all in and escape
@@ -193,8 +195,9 @@ class Trainer:
 # Cast Hyperparameters to the appropriate values
         self.args = HyperParameters(
             float(parameters["TrainData"]["LearningRate"]["value"]),
-                                    int(parameters["TrainData"]["NNBatchSize"]["value"]),
-                                    int(parameters["TrainData"]["EpochNum"]["value"])
+            int(parameters["TrainData"]["NNBatchSize"]["value"]),
+            int(parameters["TrainData"]["EpochNum"]["value"]),
+            float(parameters["TrainData"]["L2Reg"]["value"])
         )
 # Create Net and send to proper device
         PixelCountX = int(parameters["GenData"]["PixelCountX"]["value"])
@@ -210,7 +213,7 @@ class Trainer:
         self.model.double()
         self.model.to(self.device)
 # Construct optimizer, loss function, load in data, and create History buffer
-        self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate)
+        self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate, weight_decay=self.args.L2_regularization)
         self.loss = loss_func()
         train_dataset = AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"], max_files=max_f)
         train_avg_energies = (train_dataset.avg_energy_all_in, train_dataset.avg_energy_escape)
