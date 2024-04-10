@@ -1,28 +1,38 @@
+# Pytorch imports
 import torch
+from torch import optim
 from torch import nn
+from torch import no_grad, cuda, backends
 from torch.utils.data import DataLoader, WeightedRandomSampler
-from scipy.stats import ks_2samp
-from AnodePlaneDataset import AnodePlaneDataset
+
+# Standard scientific python packages
 import matplotlib.pyplot as plt
 import numpy as np
-
-import sparseconvnet as scn
-
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.model_selection import KFold
+# Used to compare truth/prediction distributions
+from scipy.stats import ks_2samp
 
+# Custom Dataset to load .safetensor files from a folder in a way that DataLoader can understand
+from AnodePlaneDataset import AnodePlaneDataset
 from safetensors.torch import save_model, load_model
 
+# SparseCNN implementation
+import sparseconvnet as scn
+
+# Used for decorators of Hyperparameter and other classes
+from dataclasses import dataclass, field
+
+# STD library functions
 import sys, itertools
 import argparse
 
-from dataclasses import dataclass, field
-
+# Include path immediately above to import TomlSanityCheck
 sys.path.append('..')
 from  TomlSanityCheck import TomlSanityCheck
 
 class SimpleNN(nn.Module):
-# Bare-bones Neural Network Architecture. Need to futzs around with this
+# Bare-bones Neural Network Architecture. Don't actually use this for the real network. Just for testing pipeline
     def __init__(self, PixelCountX, PixelCountY, output="class"):
         self.net_type = output.lower()
         super().__init__()
@@ -78,7 +88,7 @@ class SimpleCNN(nn.Module):
                 nn.Conv2d(32, 16, 3),
                 nn.ReLU(),
                 nn.MaxPool2d(3,3),
-    # Classification
+    # Regression
                 nn.Flatten(),
                 nn.Linear(64, 1)
             )
@@ -96,10 +106,11 @@ class History:
     loss_epoch_count: list[int] = field(default_factory=list)
     validation_accuracy_history: list[float] = field(default_factory=list)
     acc_epoch_count: list[int] = field(default_factory=list)
+
     def add_loss(self,training_loss: float, validation_loss: float, epoch_num:int =None):
-# training_loss and validation_loss are just doubles
-# Can specify what epoch number these losses correspond to
-# If you don't, the epoch number is just the total number of losses recorded (0-based index)
+    # training_loss and validation_loss are just doubles
+    # Can specify what epoch number these losses correspond to
+    # If you don't, the epoch number is just the total number of losses recorded (0-based index)
         if epoch_num==None:
             self.loss_epoch_count.append(len(self.training_loss_hist))
         else:
@@ -108,7 +119,7 @@ class History:
         self.validation_loss_hist.append(validation_loss)
 
     def add_accuracy(self, validation_percentage: float, epoch_num:int =None):
-# Same as loss, but input is a percentage of how many labels were accurately classified. Only for validation set
+    # Same as loss, but input is a percentage of how many labels were accurately classified. Only for validation set
         if epoch_num==None:
             self.acc_epoch_count.append(len(self.validation_accuracy_history))
         else:
@@ -116,7 +127,7 @@ class History:
         self.validation_accuracy_history.append(validation_percentage)
 
     def print(self):
-# Helper function to print out logs
+    # Helper function to print out logs
         print("Loss")
         print(self.loss_epoch_count)
         print(self.training_loss_hist)
@@ -186,9 +197,9 @@ class Trainer:
 # If you can run on GPU, do so.
         self.device = (
             "cuda"
-            if torch.cuda.is_available()
+            if cuda.is_available()
             else "mps"
-            if torch.backends.mps.is_available()
+            if backends.mps.is_available()
             else "cpu"
         )
         print(self.device)
@@ -215,6 +226,8 @@ class Trainer:
 # Construct optimizer, loss function, load in data, and create History buffer
         self.opt = optimizer(self.model.parameters(),  lr=self.args.learning_rate, weight_decay=self.args.L2_regularization)
         self.loss = loss_func()
+# This part just reads in the Dataset(s)
+# Also, get average energy for each subset. Can be used as a baseline to help debug regression predictions
         train_dataset = AnodePlaneDataset(parameters["TrainData"]["InputTrainingFolderPath"]["value"], max_files=max_f)
         train_avg_energies = (train_dataset.avg_energy_all_in, train_dataset.avg_energy_escape)
         val_dataset = AnodePlaneDataset(parameters["TrainData"]["InputValidationFolderPath"]["value"], max_files=max_f)
@@ -226,12 +239,14 @@ class Trainer:
             val_avg_energies[0], val_avg_energies[1],
             test_avg_energies[0], test_avg_energies[1],
         )
+# Actually saving Datasets to class
         self.train_data = DataLoader(train_dataset, sampler=WeightedRandomSampler(weights=train_dataset.emit_weight_map_data()[0],num_samples=len(train_dataset),replacement=True),batch_size=self.args.batch_size)
         self.val_data = DataLoader(val_dataset,batch_size=self.args.batch_size)
         self.test_data = DataLoader(test_dataset,batch_size=self.args.batch_size)
         self.training_history = History()
     
     def predict_all(self, which_data="test"):
+# Given the current state of the model, do prediction on all of the data in a given set (test or validation)
         data = None
         match which_data:
             case "test":
@@ -240,16 +255,17 @@ class Trainer:
                 data = self.val_data
             case _:
                 raise Exception("Invalid Dataloader")
+# Place to store output
         predictions = []
         truth_level = []
         self.model.eval()
-        with torch.no_grad():
+        with no_grad():
             for i, batch in enumerate(data):
                 inpt, lbls = batch
                 truth_labels = None
                 match self.model.net_type:
                     case "class":
-                        # Label denoting escape or all in event
+                        # Label denoting escape or all in event. index 2 is where classification label is
                         truth_labels = lbls[:,:,2]
                         inpt = inpt.to(self.device)
                         voutputs = self.model(inpt).round()
@@ -307,7 +323,7 @@ class Trainer:
             self.model.eval()
             correct = 0
             total = 0
-            with torch.no_grad():
+            with no_grad():
                 for i, vdata in enumerate(self.val_data):
                     vinputs, vlabels = vdata
                     vtruth_labels = vlabels[:,:,2]
@@ -347,36 +363,6 @@ class Plotter:
         plt.title(title)
         plt.savefig(title+".png")
         plt.close()
-    def plot_confusion_mat(self, predictions, truth, class_names = None,
-        title="Confusion matrix", normalize=False, save=True):
-        cm = confusion_matrix(truth,predictions)
-        plt.clf()
-        plt.figure(figsize=(8, 6))
-        plt.imshow(cm, interpolation="nearest", cmap=self.cmap, vmin=0, vmax=1)
-        plt.title(title)
-        plt.colorbar()
-
-        if class_names is not None:
-            tick_marks = np.arange(len(class_names))
-            plt.xticks(tick_marks, class_names, rotation=45, fontsize=15)
-            plt.yticks(tick_marks, class_names,fontsize=15)
-
-        if normalize:
-            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-# Add percentage/count to center of each cell in confusion matrix, choosing color for better visibility
-        thresh = cm.max() / 1.5 if normalize else cm.max() / 2
-        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-            if normalize:
-                plt.text(j, i, "{:0.3f}".format(cm[i, j]),
-                    horizontalalignment="center", fontsize=15,
-                    color="white" if cm[i, j] > thresh else "black")
-            else:
-                plt.text(j, i, "{:,}".format(cm[i, j]),
-                    horizontalalignment="center",
-                    color="white" if cm[i, j] > thresh else "black")
-        plt.tight_layout()
-        plt.ylabel('True label', fontsize=15)
-        plt.xlabel('Predicted label', fontsize=15)
     def plot_regression_scatter(self,predictions,truth, title):
         predictions = np.array([x.cpu() for x in predictions]) # Transfer tensor from gpu to cpu
         MSE_Error = sum(np.abs(predictions-truth))
@@ -410,6 +396,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='TrainNet')
     parser.add_argument('TOML',help="Path to .toml config file")
     args = parser.parse_args()
+# Sanity check config files
     sanity_checker = TomlSanityCheck(args.TOML)
     try:
         sanity_checker.validate()
@@ -418,15 +405,16 @@ if __name__ == "__main__":
         sys.exit()
     paras=  sanity_checker.return_config()
     print(paras)
-#    temp_plotter.plot_confusion_mat(pred, truth, class_names = ["AllIn","Escape"])
+# Spin up Trainer depending on the classification task at hand
     if(paras["TrainData"]["Target"]["value"].lower().strip()=="class"):
-        trainer = Trainer(paras, torch.optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
+        trainer = Trainer(paras, optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
                         output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
         temp_plotter = Plotter()
+# Also, make prediction without any training as baseline
         truth, pred = trainer.predict_all()
         temp_plotter.plot_confusion_mat_scipy(pred, truth, "Prior to Training")
     elif(paras["TrainData"]["Target"]["value"].lower().strip()=="energy"):
-        trainer = Trainer(paras, torch.optim.Adam, nn.MSELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
+        trainer = Trainer(paras, optim.Adam, nn.MSELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
                         output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
         temp_plotter = Plotter()
         truth, pred = trainer.predict_all()
@@ -434,7 +422,9 @@ if __name__ == "__main__":
         temp_plotter.plot_regression_histograms(pred,truth,"Prior to Training")
     else:
         raise Exception("Invalid initial class")
+# Learn damn it!
     trainer.fit()
+# Write out diagnostics of training arc
     trainer.training_history.dump()
     trainer.training_history.plot("loss")
     truth, pred = trainer.predict_all()
@@ -446,4 +436,5 @@ if __name__ == "__main__":
         temp_plotter.plot_regression_histograms(pred,truth,"After Training")
     else:
         raise Exception("Invalid prediction task")
+# Save model for later...
     trainer.save_model(paras["TrainData"]["ModelFile"]["value"])

@@ -92,7 +92,7 @@
 # What is the classification target?
 [TrainData.Target]
 # Possible values are {"class", "energy"}
-    value="energy"
+    value="class"
     constraint = "TrainingTarget"
 
 # What network architecture to use
