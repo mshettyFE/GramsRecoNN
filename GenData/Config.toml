@@ -76,7 +76,7 @@
 
 # How many epochs do you want to do?
 [TrainData.EpochNum]
-    value = 30
+    value = 20
     constraint =  "SPosInt"
 
 # How big is L2 regularization term?
@@ -86,13 +86,13 @@
 
 # How many files to process (set to large value to get all data. Use small values to quickly check small changes)
 [TrainData.MaxFiles]
-    value =1000000
+    value =1000000000
     constraint = "SPosInt"
 
 # What is the classification target?
 [TrainData.Target]
 # Possible values are {"class", "energy"}
-    value="class"
+    value="energy"
     constraint = "TrainingTarget"
 
 # What network architecture to use

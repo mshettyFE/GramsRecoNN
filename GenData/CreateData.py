@@ -34,6 +34,9 @@ TrackInfo_keys_map = {k:v for k,v in zip(TrackInfo_keys,range(len(TrackInfo_keys
 Readout_keys = ["Run", "Event", "TrackID", "PDGCode", "numPhotons", "cerPhotons", "energy", "numElectrons", "x","y","z","timeAtAnode","num_step", "identifier","pixel_idx","pixel_idy"]
 Readout_keys.sort()
 Readout_keys_map = {k:v for k,v in zip(Readout_keys,range(len(Readout_keys)))}
+# Valid interactions
+valid_interactions = ["Primary", "phot", "compt"]
+
 
 class Position:
 # Very bare bones R^3 vector. Supports addition, subtraction, L2 norm and dot product, which are the only operations I can about for Scatter Series Reconstruction
@@ -131,7 +134,8 @@ class ScatterSeries:
     def __len__(self):
         return len(self.scatter_series)
     def add(self,scatter):
-    # Python lets you do type annotations now, which is neat, and useful in this case since we really only want GramsG4Entries here
+    # I'm not sure how to constrain input varibles in Python to multiple objects, hence,
+    # Make sure that you pass in either a GramsG4 entry or a  GramsReadoutEntry object, otherwise, this won't work. Also, don't mix the two
         self.scatter_series.append(scatter)
     def sort(self):
     # Sort the scatter series by time
@@ -141,7 +145,7 @@ class ScatterSeries:
             raise Exception("Can't determine reconstructability of Readout data")
         if(len(self.scatter_series) <3):
             return False
-        valid_interactions = ["Primary", "phot", "compt"]
+        global valid_interactions
         for scatter in self.scatter_series:
             if scatter.process not in valid_interactions:
                 return False
@@ -157,7 +161,7 @@ class ScatterSeries:
         if self.scatter_series[-1].process != "phot":
 # 1 denotes that the series escaped
             return 1
-# 0 denotes that all the series was recorded
+# 0 denotes that series terminated inside the detector
         return 0
 
     def output_tuple(self):
@@ -291,6 +295,7 @@ def CreateReadoutTensor(configuration, input_data, output_data, run):
     return tensors
 
 def TrackInfoIndex(label:str):
+# Maps the leaf on TrackInfoTuple to an integer
     global TrackInfo_keys_map
     if label not in TrackInfo_keys_map:
         raise Exception("invalid gramsg4 label")
@@ -298,12 +303,12 @@ def TrackInfoIndex(label:str):
     return out
 
 def ReadoutIndex(label:str):
+# Maps the leaf on ReadoutIndex to an integer
     global Readout_keys_map
     if label not in Readout_keys_map:
         raise Exception("invalid readoutsim label")
     out = Readout_keys_map[label]
     return out
-
 
 def ReadG4Root(configuration, gramsg4_path):
     output_mctruth_series = {}

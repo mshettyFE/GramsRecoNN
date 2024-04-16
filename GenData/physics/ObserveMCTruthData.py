@@ -17,17 +17,23 @@ sys.path.append('../..')
 from  TomlSanityCheck import TomlSanityCheck
 
 # sorted Branches of Gramsg4 root tuple, along with map
-TrackInfo_keys = ['Etot', 'Event', 'PDGCode', 'ParentID', 'ProcessName', 'Run', 'TrackID', 'identifier', 'px', 'py', 'pz', 't', 'x', 'y', 'z']
+TrackInfo_keys = ('Etot', 'Event', 'PDGCode', 'ParentID', 'ProcessName', 'Run', 'TrackID', 'identifier', 'px', 'py', 'pz', 't', 'x', 'y', 'z')
 TrackInfo_keys_map = {k:v for k,v in zip(TrackInfo_keys,range(len(TrackInfo_keys)))}
+
+# Interactions to look out for in data
+valid_interactions = ("Primary", "phot", "compt")
+
+# rest mass of electron in MeV
+rest_mass_e = 0.511
 
 
 class Position:
 # Very bare bones R^3 vector. Supports addition, subtraction, L2 norm and dot product, which are the only operations I can about for Scatter Series Reconstruction
-# Effectively a Wrapper around numpy, but converts gramsg4 truth tuple info into Python object
+# Effectively a Wrapper around numpy, lets one turn gramsg4 x,y,z leaves into a Python object that is easier to work with
     def __init__(self,x,y,z):
         self.pos = np.array([x,y,z])
     def __repr__(self):
-    # If you do print(p) where p is of type Position, this is what is printed out
+    # If you do print(p) where p is of type Position, this is what is pushed to stdout
         output = ""
         output += str(self.pos[0])
         output += " "
@@ -69,13 +75,13 @@ class GramsG4Entry:
     def emit_positions(self):
         return self.position
     def emit_data(self):
-        return (self.position, self.time, self.energy)
+        return {"position":self.position, "time":self.time, "energy":self.energy}
 
 class ScatterSeries:
 # Stores a list of GramsG4Entries, and determines if the series is reconstructable with Compton Cone Method
     def __init__(self):
-        self.current_index = -1
-        self.scatter_series = []
+        self.current_index = -1 # This is so that we can treat ScatterSeries as an iterator
+        self.scatter_series = [] # the actual scatter series data
     def __repr__(self):
         count = 1
         output = ""
@@ -88,17 +94,16 @@ class ScatterSeries:
     def __len__(self):
         return len(self.scatter_series)
     def __iter__(self):
-        self.current_index = -1
+        self.current_index = -1 # Reset the counter to the begining when iterator is constructed
         return self
 
     def __next__(self):
-        self.current_index += 1
+        self.current_index += 1 # Advance counter, and check if it is out of bounds or not
         if self.current_index < len(self.scatter_series):
             return self.scatter_series[self.current_index]
         raise StopIteration
 
     def add(self,scatter: GramsG4Entry):
-    # Python lets you do type annotations now, which is neat, and useful in this case since we really only want GramsG4Entries here
         self.scatter_series.append(scatter)
     def sort(self):
     # Sort the scatter series by time
@@ -106,7 +111,7 @@ class ScatterSeries:
     def reconstructable(self):
         if(len(self.scatter_series) <3):
             return False
-        valid_interactions = ["Primary", "phot", "compt"]
+        global valid_interactions
         for scatter in self.scatter_series:
             if scatter.process not in valid_interactions:
                 return False
@@ -134,9 +139,19 @@ class ScatterSeries:
         photon_to_first = self.scatter_series[0].position - self.scatter_series[1].position
         first_to_second = self.scatter_series[1].position - self.scatter_series[2].position
         truth_angle = np.dot(photon_to_first, first_to_second)/(np.linalg.norm(photon_to_first)*np.linalg.norm(first_to_second))
-        return (self.scatter_series[0].energy,truth_angle,e_type)
-
-def TrackInfoIndex(label:str):
+    # Grab summed deposited energy
+        itter = self.__iter__()
+        next(itter) # Discared first entry since that is the gamma ray
+        summed_deposited_energy  = 0
+        global rest_mass_e
+        for event in itter:
+            summed_deposited_energy += (event.energy-rest_mass_e) # Remove electron rest mass 
+        return {"truth_energy":self.scatter_series[0].energy,
+                 "truth_angle":truth_angle, 
+                 "escape_type": e_type,
+                   "dep_energy": summed_deposited_energy, "n_scatters": len(self)-1}
+    
+def TrackInfoIndex(label:str): # This function is needed since Python dictionaries have no defined order on the keys
     global TrackInfo_keys_map
     if label not in TrackInfo_keys_map:
         raise Exception("invalid gramsg4 label")
@@ -193,36 +208,61 @@ def ReadRoot(configuration, gramsg4_path):
             output_energy_angle[key] = output_tuple
     return output_mctruth_series, output_energy_angle
 
-def histogram_compton_energy(scatter_series, out_dir, event_type="phot"):
+def histogram_compton_energy(scatter_series, out_dir, event_type="compt"):
+    global valid_interactions
+    if(event_type not in valid_interactions):
+        raise Exception("event_type is not valid")
     keys = list(scatter_series.keys())
     all_in_outputs = []
     escape_outputs = []
+    global rest_mass_e
     for key in keys:
         scatters = scatter_series[key]
         escape_type = scatters.escape_type()
         for hit in scatters:
             if (hit.process == event_type):
                 if(escape_type == 0):
-                    all_in_outputs.append(hit.energy-0.511) # subtract rest mass of electron
+                    all_in_outputs.append(hit.energy-rest_mass_e) # subtract rest mass of electron
                 else:
-                    escape_outputs.append(hit.energy-0.511)
+                    escape_outputs.append(hit.energy-rest_mass_e)
     plt.hist(all_in_outputs, bins=100, color='skyblue', edgecolor='black')
-    plt.title("Photoabsorption for All In Events")
+    plt.title("Phot for All In Events")
     plt.xlabel("Energy")
     plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
-    plt.savefig("PhotAllInHistogram.png")    
+    plt.savefig("PhotInHistogram.png")
     os.chdir(home)
+    plt.clf()
 
     plt.hist(escape_outputs, bins=100, color='skyblue', edgecolor='black')
-    plt.title("Photoabsorption for Escape Events")
+    plt.title("Phot for Escape Events")
     plt.xlabel("Energy")
     plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
-    plt.savefig("PhotEscapeHistogram.png")    
+    plt.savefig("PhotEscapeHistogram.png")
     os.chdir(home)
+
+def histogram_truth_v_deposited(scatter_series, out_dir):
+    keys = list(scatter_series.keys())
+    truth_energy = []
+    deposited_energy = []
+    for key in keys:
+        scatters = scatter_series[key]
+        data = scatters.output_tuple()
+        truth_energy.append(data["truth_energy"])
+        deposited_energy.append(data["dep_energy"])
+    plt.clf()
+    plt.scatter(truth_energy,deposited_energy)
+    plt.title("Truth versus deposited energy")
+    plt.xlabel("Truth Energy")
+    plt.ylabel("Deposited")
+    home = os.getcwd()
+    os.chdir(out_dir)
+    plt.savefig("TruthVsDepositedMCTruth.png")
+    os.chdir(home)
+    plt.clf()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
@@ -260,4 +300,5 @@ if __name__ == "__main__":
     # Run simulation, and generate tensors to pass to PyTorch
     gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
-    histogram_compton_energy(input_data,home)
+    histogram_compton_energy(input_data,home,"phot")
+    histogram_truth_v_deposited(input_data, home)

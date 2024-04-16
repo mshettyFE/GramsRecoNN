@@ -146,11 +146,12 @@ class History:
             for i in range(len(self.acc_epoch_count)):
                 f.write(",".join([str(x) for x in [self.acc_epoch_count[i], self.validation_accuracy_history[i]]])+"\n")
 
-    def plot(self, which="loss"):
+    def plot(self, which="loss",prefix_title=""):
 # saves .pngs of either losses or accuracy
         plt.close()
         match which:
             case "loss":
+                title = prefix_title+"_LossRecord.png"
                 x = np.array(self.loss_epoch_count)
                 train = np.array(self.training_loss_hist)
                 val = np.array(self.validation_loss_hist)
@@ -160,15 +161,16 @@ class History:
                 plt.xlabel("Epochs")
                 plt.ylabel("Loss")
                 plt.title('Loss over Epochs')
-                plt.savefig('LossRecord.png')
+                plt.savefig(title)
             case "acc":
+                title = prefix_title+"AccuracyRecord.png"
                 x = np.array(self.acc_epoch_count)
                 val = np.array(self.validation_accuracy_history)
                 plt.scatter(x, val, color="red")
                 plt.xlabel("Epochs")
                 plt.ylabel("Accuracy (%)")
                 plt.title('Accuracy over Epochs')
-                plt.savefig('AccuracyRecord.png')
+                plt.savefig(title)
             case _:
                 raise Exception("which in History.plot() must be either 'loss' or 'acc'")
         plt.close()
@@ -372,7 +374,7 @@ class Plotter:
         plt.xlabel("Truth Gamma Energy")
         plt.ylabel("Prediction Gamma Energy")
         plt.title(title+" MSE_Error="+str(MSE_Error))
-        plt.savefig(title+".png")
+        plt.savefig(title+"_Scatter.png")
         plt.close()
     def plot_regression_histograms(self, predictions, truth,title):
         predictions = np.array([x.cpu() for x in predictions]) # Transfer tensor from gpu to cpu
@@ -382,14 +384,15 @@ class Plotter:
         plt.xlabel("Truth Gamma Energy")
         plt.ylabel("Count")
         plt.title(title+" MSE_Error="+str(MSE_Error))
-        plt.savefig(title+":Hist:Truth.png")
+        plt.savefig(title+"_Hist_Truth.png")
         plt.close()
+        plt.clf()
         plt.hist(predictions, bins=100)
         plt.xlabel("Truth Gamma Energy")
         plt.ylabel("Count")
         KS_test_stat, KS_test_p_val = ks_2samp(truth, predictions)
         plt.title(title+" Stat:"+str(KS_test_stat)+" Pval"+str(KS_test_p_val))
-        plt.savefig(title+":Hist:Pred.png")
+        plt.savefig(title+"_Hist_Pred.png")
         plt.close()
 
 if __name__ == "__main__":
@@ -406,34 +409,37 @@ if __name__ == "__main__":
     paras=  sanity_checker.return_config()
     print(paras)
 # Spin up Trainer depending on the classification task at hand
-    if(paras["TrainData"]["Target"]["value"].lower().strip()=="class"):
+    target  = paras["TrainData"]["Target"]["value"].lower().strip()
+    titles = target+"_Prior_Training"
+    if(target=="class"):
         trainer = Trainer(paras, optim.Adam, nn.BCELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
                         output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
         temp_plotter = Plotter()
 # Also, make prediction without any training as baseline
         truth, pred = trainer.predict_all()
-        temp_plotter.plot_confusion_mat_scipy(pred, truth, "Prior to Training")
-    elif(paras["TrainData"]["Target"]["value"].lower().strip()=="energy"):
+        temp_plotter.plot_confusion_mat_scipy(pred, truth, titles)
+    elif(target=="energy"):
         trainer = Trainer(paras, optim.Adam, nn.MSELoss, int(paras["TrainData"]["MaxFiles"]["value"]),
                         output_type=paras["TrainData"]["Target"]["value"], model_type=paras["TrainData"]["NetworkType"]["value"])
         temp_plotter = Plotter()
         truth, pred = trainer.predict_all()
-        temp_plotter.plot_regression_scatter(pred,truth, "Prior to Training")
-        temp_plotter.plot_regression_histograms(pred,truth,"Prior to Training")
+        temp_plotter.plot_regression_scatter(pred,truth, titles)
+        temp_plotter.plot_regression_histograms(pred,truth,titles)
     else:
         raise Exception("Invalid initial class")
 # Learn damn it!
     trainer.fit()
 # Write out diagnostics of training arc
     trainer.training_history.dump()
-    trainer.training_history.plot("loss")
+    trainer.training_history.plot("loss", prefix_title=titles)
     truth, pred = trainer.predict_all()
-    if(paras["TrainData"]["Target"]["value"].lower().strip()=="class"):
-        trainer.training_history.plot("acc")
-        temp_plotter.plot_confusion_mat_scipy(pred, truth, "After Training")
-    elif(paras["TrainData"]["Target"]["value"].lower().strip()=="energy"):
-        temp_plotter.plot_regression_scatter(pred,truth, "After Training")
-        temp_plotter.plot_regression_histograms(pred,truth,"After Training")
+    titles = target+"_After_Training"
+    if(target=="class"):
+        trainer.training_history.plot("acc", prefix_title=titles)
+        temp_plotter.plot_confusion_mat_scipy(pred, truth, titles)
+    elif(target=="energy"):
+        temp_plotter.plot_regression_scatter(pred,truth, titles)
+        temp_plotter.plot_regression_histograms(pred,truth,titles)
     else:
         raise Exception("Invalid prediction task")
 # Save model for later...
