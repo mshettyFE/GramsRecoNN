@@ -185,7 +185,8 @@ def ReadRoot(configuration, gramsg4_path):
         for run in unique_run_mask:
             for event in unique_event_mask:
                 event_mask = np.logical_and((data["Run"]==run), ( data["Event"]==event)) # Grab all hits coming from the same initial gamma ray
-                check_for_reconstructable_mask = np.logical_and(event_mask,data["ProcessName"]!="Primary") # From the hits, get all the non-photon events
+                reconstructable_process_check = np.logical_and(event_mask, data["ProcessName"]!="Primary")
+                check_for_reconstructable_mask = np.logical_and(reconstructable_process_check, data["PDGCode"]==11) # From the hits, get all the non-photon events
                 primary_mask = np.logical_and(event_mask,(data["ProcessName"]=="Primary")) # get the gamma ray for this particular event
                 # get the data for this event
                 scatters = [data[str(key)][check_for_reconstructable_mask] for key in keys]
@@ -255,12 +256,40 @@ def scatter_truth(scatter_series, out_dir, y_para_name = "dep_energy"):
         y_val.append(data[y_para_name])
     plt.clf()
     plt.scatter(truth_energy,y_val)
+    plt.plot(truth_energy,truth_energy,color='r')
     plt.title("Truth versus "+y_para_name)
     plt.xlabel("Truth Energy")
     plt.ylabel(y_para_name)
     home = os.getcwd()
     os.chdir(out_dir)
     plt.savefig("TruthVs_"+y_para_name+".png")
+    os.chdir(home)
+    plt.clf()
+
+def hist_truth(scatter_series, out_dir, y_para_name = "n_scatters", escape_type=None):
+    keys = list(scatter_series.keys())
+    title = y_para_name+" Histogram"
+    if(escape_type):
+        title = title + "_"+ escape_type
+    values = []
+    for key in keys:
+        scatters = scatter_series[key]
+        data = scatters.output_tuple()
+        if(escape_type):
+            if((escape_type=="AllIn") and (data["escape_type"] == 0)):
+                values.append(data[y_para_name])
+            if((escape_type=="Escape") and (data["escape_type"] == 1)):
+                values.append(data[y_para_name])
+        else:
+            values.append(data[y_para_name])
+    plt.clf()
+    plt.hist(values, bins=100, color='skyblue', edgecolor='black')
+    plt.title(title)
+    plt.xlabel(y_para_name)
+    plt.ylabel("Count")
+    home = os.getcwd()
+    os.chdir(out_dir)
+    plt.savefig(title+"Histogram.png")
     os.chdir(home)
     plt.clf()
 
@@ -301,4 +330,6 @@ if __name__ == "__main__":
     gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
     histogram_compton_energy(input_data,home,"phot")
-    scatter_truth(input_data, home)
+    hist_truth(input_data, home)
+    hist_truth(input_data, home,escape_type="AllIn")
+    hist_truth(input_data, home,escape_type="Escape")
