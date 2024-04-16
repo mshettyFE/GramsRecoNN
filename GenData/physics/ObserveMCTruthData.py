@@ -244,23 +244,23 @@ def histogram_compton_energy(scatter_series, out_dir, event_type="compt"):
     plt.savefig("PhotEscapeHistogram.png")
     os.chdir(home)
 
-def histogram_truth_v_deposited(scatter_series, out_dir):
+def scatter_truth(scatter_series, out_dir, y_para_name = "dep_energy"):
     keys = list(scatter_series.keys())
     truth_energy = []
-    deposited_energy = []
+    y_val = []
     for key in keys:
         scatters = scatter_series[key]
         data = scatters.output_tuple()
         truth_energy.append(data["truth_energy"])
-        deposited_energy.append(data["dep_energy"])
+        y_val.append(data[y_para_name])
     plt.clf()
-    plt.scatter(truth_energy,deposited_energy)
-    plt.title("Truth versus deposited energy")
+    plt.scatter(truth_energy,y_val)
+    plt.title("Truth versus "+y_para_name)
     plt.xlabel("Truth Energy")
-    plt.ylabel("Deposited")
+    plt.ylabel(y_para_name)
     home = os.getcwd()
     os.chdir(out_dir)
-    plt.savefig("TruthVsDepositedMCTruth.png")
+    plt.savefig("TruthVs_"+y_para_name+".png")
     os.chdir(home)
     plt.clf()
 
@@ -301,4 +301,4 @@ if __name__ == "__main__":
     gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
     histogram_compton_energy(input_data,home,"phot")
-    histogram_truth_v_deposited(input_data, home)
+    scatter_truth(input_data, home)
