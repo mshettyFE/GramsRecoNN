@@ -22,6 +22,7 @@ TrackInfo_keys_map = {k:v for k,v in zip(TrackInfo_keys,range(len(TrackInfo_keys
 
 # Interactions to look out for in data
 valid_interactions = ("Primary", "phot", "compt")
+valid_escape_flags= ("AllIn","Escape")
 
 # rest mass of electron in MeV
 rest_mass_e = 0.511
@@ -74,6 +75,8 @@ class GramsG4Entry:
         return output
     def emit_positions(self):
         return self.position
+    def emit_process(self):
+        return self.process
     def emit_data(self):
         return {"position":self.position, "time":self.time, "energy":self.energy}
 
@@ -293,6 +296,65 @@ def hist_data(scatter_series, out_dir, y_para_name = "n_scatters", escape_type=N
     os.chdir(home)
     plt.clf()
 
+def ThreeDLastScatterPlot(scatter_series, out_dir,escape_type="AllIn"):
+    keys = list(scatter_series.keys())
+    global valid_escape_flags
+    if(escape_type not in valid_escape_flags):
+        raise Exception("Invalid escape value")
+    title = escape_type+"LastScatter_3D"
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    x_vals = []
+    y_vals = []
+    z_vals = []
+    for key in keys:
+        scatters = scatter_series[key]
+        escape_flag = scatters.escape_type()
+        last_hit = scatters.scatter_series[-1]
+        x = last_hit.position.pos[0]
+        y = last_hit.position.pos[1]
+        z = last_hit.position.pos[2]
+        if(((escape_type=="AllIn")) and (escape_flag == 0)):
+            x_vals.append(x)
+            y_vals.append(y)
+            z_vals.append(z)
+        if(((escape_type=="Escape")) and (escape_flag == 1)):
+            x_vals.append(x)
+            y_vals.append(y)
+            z_vals.append(z)
+# 3d Plot
+    ax.scatter(x_vals, y_vals,z_vals, marker = 'o', color='red')
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(title)
+    home = os.getcwd()
+    os.chdir(out_dir)
+    fig.savefig(title+".png")
+# X Distribution
+    plt.clf()
+    plt.hist(x_vals, bins=100, color='skyblue', edgecolor='black')
+    plt.title(title)
+    plt.xlabel("X")
+    plt.ylabel("Count")
+    plt.savefig(title+"Histogram_X.png")
+    plt.clf()
+# Y Distribution
+    plt.hist(y_vals, bins=100, color='skyblue', edgecolor='black')
+    plt.title(title)
+    plt.xlabel("Y")
+    plt.ylabel("Count")
+    plt.savefig(title+"Histogram_Y.png")
+    plt.clf()
+# Z Distribution
+    plt.hist(z_vals, bins=100, color='skyblue', edgecolor='black')
+    plt.title(title)
+    plt.xlabel("Z")
+    plt.ylabel("Count")
+    plt.savefig(title+"Histogram_Z.png")
+    plt.clf()
+    os.chdir(home)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='CreateMCNNData')
     parser.add_argument('GenDataTOML',help="Path to .toml config file to generate data")
@@ -323,7 +385,6 @@ if __name__ == "__main__":
     home = os.getcwd()
     os.chdir("../..")
     hm = os.getcwd()
-    random.seed(time.time())
     output_tensor = {}
     meta = {}
     # Run simulation, and generate tensors to pass to PyTorch
@@ -338,3 +399,5 @@ if __name__ == "__main__":
     hist_data(input_data, home,escape_type="Escape",y_para_name="truth_energy")
     hist_data(input_data, home,escape_type="AllIn",y_para_name="dep_energy")
     hist_data(input_data, home,escape_type="Escape",y_para_name="dep_energy")
+    ThreeDLastScatterPlot(input_data, home, escape_type="Escape")
+    ThreeDLastScatterPlot(input_data, home, escape_type="AllIn")
