@@ -430,10 +430,10 @@ if __name__ == "__main__":
 # Learn damn it!
     trainer.fit()
 # Write out diagnostics of training arc
+    titles = target+"_After_Training"
     trainer.training_history.dump()
     trainer.training_history.plot("loss", prefix_title=titles)
     truth, pred = trainer.predict_all()
-    titles = target+"_After_Training"
     if(target=="class"):
         trainer.training_history.plot("acc", prefix_title=titles)
         temp_plotter.plot_confusion_mat_scipy(pred, truth, titles)

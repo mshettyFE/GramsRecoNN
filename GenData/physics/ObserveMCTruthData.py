@@ -228,7 +228,7 @@ def histogram_compton_energy(scatter_series, out_dir, event_type="compt"):
                     escape_outputs.append(hit.energy-rest_mass_e)
     plt.hist(all_in_outputs, bins=100, color='skyblue', edgecolor='black')
     plt.title("Phot for All In Events")
-    plt.xlabel("Energy")
+    plt.xlabel("Energy (MeV)")
     plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
@@ -238,7 +238,7 @@ def histogram_compton_energy(scatter_series, out_dir, event_type="compt"):
 
     plt.hist(escape_outputs, bins=100, color='skyblue', edgecolor='black')
     plt.title("Phot for Escape Events")
-    plt.xlabel("Energy")
+    plt.xlabel("Energy (MeV)")
     plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
@@ -258,7 +258,7 @@ def scatter_truth(scatter_series, out_dir, y_para_name = "dep_energy"):
     plt.scatter(truth_energy,y_val)
     plt.plot(truth_energy,truth_energy,color='r')
     plt.title("Truth versus "+y_para_name)
-    plt.xlabel("Truth Energy")
+    plt.xlabel("Truth Energy (MeV)")
     plt.ylabel(y_para_name)
     home = os.getcwd()
     os.chdir(out_dir)
@@ -266,7 +266,7 @@ def scatter_truth(scatter_series, out_dir, y_para_name = "dep_energy"):
     os.chdir(home)
     plt.clf()
 
-def hist_truth(scatter_series, out_dir, y_para_name = "n_scatters", escape_type=None):
+def hist_data(scatter_series, out_dir, y_para_name = "n_scatters", escape_type=None):
     keys = list(scatter_series.keys())
     title = y_para_name+" Histogram"
     if(escape_type):
@@ -330,6 +330,11 @@ if __name__ == "__main__":
     gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
     histogram_compton_energy(input_data,home,"phot")
-    hist_truth(input_data, home)
-    hist_truth(input_data, home,escape_type="AllIn")
-    hist_truth(input_data, home,escape_type="Escape")
+    hist_data(input_data, home)
+    hist_data(input_data, home,escape_type="AllIn")
+    hist_data(input_data, home,escape_type="Escape")
+    hist_data(input_data, home,y_para_name="truth_energy")
+    hist_data(input_data, home,escape_type="AllIn",y_para_name="truth_energy")
+    hist_data(input_data, home,escape_type="Escape",y_para_name="truth_energy")
+    hist_data(input_data, home,escape_type="AllIn",y_para_name="dep_energy")
+    hist_data(input_data, home,escape_type="Escape",y_para_name="dep_energy")
