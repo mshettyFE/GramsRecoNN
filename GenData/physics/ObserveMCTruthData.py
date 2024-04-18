@@ -189,7 +189,8 @@ def ReadRoot(configuration, gramsg4_path):
             for event in unique_event_mask:
                 event_mask = np.logical_and((data["Run"]==run), ( data["Event"]==event)) # Grab all hits coming from the same initial gamma ray
                 reconstructable_process_check = np.logical_and(event_mask, data["ProcessName"]!="Primary")
-                check_for_reconstructable_mask = np.logical_and(reconstructable_process_check, data["PDGCode"]==11) # From the hits, get all the non-photon events
+                intermediate_mask = np.logical_and(reconstructable_process_check, data["ParentID"]==1)
+                check_for_reconstructable_mask = np.logical_and(intermediate_mask, data["PDGCode"]==11) # From the hits, get all the non-photon events
                 primary_mask = np.logical_and(event_mask,(data["ProcessName"]=="Primary")) # get the gamma ray for this particular event
                 # get the data for this event
                 scatters = [data[str(key)][check_for_reconstructable_mask] for key in keys]
@@ -230,22 +231,34 @@ def histogram_compton_energy(scatter_series, out_dir, event_type="compt"):
                 else:
                     escape_outputs.append(hit.energy-rest_mass_e)
     plt.hist(all_in_outputs, bins=100, color='skyblue', edgecolor='black')
-    plt.title("Phot for All In Events")
+    if (event_type=="compt"):
+        plt.title("All In Compton for All In Events")
+    if (event_type=="phot"):
+        plt.title("All In Phot for All In Events")
     plt.xlabel("Energy (MeV)")
     plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
-    plt.savefig("PhotInHistogram.png")
+    if (event_type=="compt"):
+        plt.savefig("AllInComptInHistogram.png")
+    if (event_type=="phot"):
+        plt.savefig("AllInPhotInHistogram.png")
     os.chdir(home)
     plt.clf()
 
     plt.hist(escape_outputs, bins=100, color='skyblue', edgecolor='black')
-    plt.title("Phot for Escape Events")
+    if (event_type=="compt"):
+        plt.title("Escape Compton for All In Events")
+    if (event_type=="phot"):
+        plt.title("Escape Phot for All In Events")
     plt.xlabel("Energy (MeV)")
     plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
-    plt.savefig("PhotEscapeHistogram.png")
+    if (event_type=="compt"):
+        plt.savefig("EscapeComptInHistogram.png")
+    if (event_type=="phot"):
+        plt.savefig("EscapePhotInHistogram.png")
     os.chdir(home)
 
 def scatter_truth(scatter_series, out_dir, y_para_name = "dep_energy"):
@@ -324,9 +337,9 @@ def ThreeDLastScatterPlot(scatter_series, out_dir,escape_type="AllIn"):
             z_vals.append(z)
 # 3d Plot
     ax.scatter(x_vals, y_vals,z_vals, marker = 'o', color='red')
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
+    ax.set_xlabel("X (cm)")
+    ax.set_ylabel("Y (cm)")
+    ax.set_zlabel("Z (cm)")
     ax.set_title(title)
     home = os.getcwd()
     os.chdir(out_dir)
@@ -335,21 +348,21 @@ def ThreeDLastScatterPlot(scatter_series, out_dir,escape_type="AllIn"):
     plt.clf()
     plt.hist(x_vals, bins=100, color='skyblue', edgecolor='black')
     plt.title(title)
-    plt.xlabel("X")
+    plt.xlabel("X (cm)")
     plt.ylabel("Count")
     plt.savefig(title+"Histogram_X.png")
     plt.clf()
 # Y Distribution
     plt.hist(y_vals, bins=100, color='skyblue', edgecolor='black')
     plt.title(title)
-    plt.xlabel("Y")
+    plt.xlabel("Y (cm)")
     plt.ylabel("Count")
     plt.savefig(title+"Histogram_Y.png")
     plt.clf()
 # Z Distribution
     plt.hist(z_vals, bins=100, color='skyblue', edgecolor='black')
     plt.title(title)
-    plt.xlabel("Z")
+    plt.xlabel("Z (cm)")
     plt.ylabel("Count")
     plt.savefig(title+"Histogram_Z.png")
     plt.clf()
@@ -391,6 +404,7 @@ if __name__ == "__main__":
     gramsg4_file = os.path.join(hm,"GramsSimWork","gramsg4.root")
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
     histogram_compton_energy(input_data,home,"phot")
+    histogram_compton_energy(input_data,home,"compt")
     hist_data(input_data, home)
     hist_data(input_data, home,escape_type="AllIn")
     hist_data(input_data, home,escape_type="Escape")
