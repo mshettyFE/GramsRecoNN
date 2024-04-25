@@ -15,8 +15,8 @@ conda env update --name $name --file $file
 ```
 
 Then, run ```conda env list``` and replace the CONDA_ENV_PATH with your own GramsDev path.
-
 Once you have the enviornment set up, run the following to finish the setup:
+
 ```
 export CONDA_ENV_PATH=""YOUR_CONDA_ENV_PATH_HERE"
 ./config_NNReco.sh
