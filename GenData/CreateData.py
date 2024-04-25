@@ -145,13 +145,18 @@ class ScatterSeries:
             raise Exception("Can't determine reconstructability of Readout data")
         if(len(self.scatter_series) <3):
             return False
+    # Sort by time to get definite ordering, where we expect photon to be first
+        self.sort()
         global valid_interactions
-        for scatter in self.scatter_series:
+        global gamma_ray_process_name
+        if(self.scatter_series[0].process != gamma_ray_process_name):
+            return False
+        for scatter in self.scatter_series[1:]:
+            # Check if all scatters after first gamma ray are either Compton or Photoabsoption
             if scatter.process not in valid_interactions:
                 return False
-# Check that all interactions (excluding the Primary) are inside the LAr. An interaction inside LAr starts with 1.
-# There are 7 digits in the identifier, so int(scatter.identifier/1000000) will specify what region in the detector the interaction took place in
-        for scatter in self.scatter_series[1:]:
+            # Check that all interactions (excluding the Primary) are inside the LAr. An interaction inside LAr starts with 1.
+            # There are 7 digits in the identifier, so int(scatter.identifier/1000000) will specify what region in the detector the interaction took place in
             if int(scatter.identifier/1000000)!=1:
                 return False
         return True
@@ -310,7 +315,7 @@ def ReadoutIndex(label:str):
     out = Readout_keys_map[label]
     return out
 
-def ReadG4Root(configuration, gramsg4_path):
+def ReadRoot(configuration, gramsg4_path):
     output_mctruth_series = {}
     output_energy_angle = {}
     # Open up root file and get TrackInfo TTree
@@ -336,7 +341,9 @@ def ReadG4Root(configuration, gramsg4_path):
         for run in unique_run_mask:
             for event in unique_event_mask:
                 event_mask = np.logical_and((data["Run"]==run), ( data["Event"]==event)) # Grab all hits coming from the same initial gamma ray
-                check_for_reconstructable_mask = np.logical_and(event_mask,data["ProcessName"]!="Primary") # From the hits, get all the non-photon events
+                reconstructable_process_check = np.logical_and(event_mask, data["ProcessName"]!="Primary") # Check that scatters are not a gamma ray
+                intermediate_mask = np.logical_and(reconstructable_process_check, data["ParentID"]==1) # Check that all scatters came immediately from ParentID
+                check_for_reconstructable_mask = np.logical_and(intermediate_mask, data["PDGCode"]==11) # From the hits, get all the non-photon events
                 primary_mask = np.logical_and(event_mask,(data["ProcessName"]=="Primary")) # get the gamma ray for this particular event
                 # get the data for this event
                 scatters = [data[str(key)][check_for_reconstructable_mask] for key in keys]
@@ -345,14 +352,13 @@ def ReadG4Root(configuration, gramsg4_path):
                 scatters = np.stack(scatters)
                 gamma = np.concatenate(gamma)
                 # Generate the scatter series for this event
-                cur_series = ScatterSeries(SeriesType.MCTruth)
+                cur_series = ScatterSeries()
                 cur_series.add(GramsG4Entry(gamma))
                 for hit in range(scatters.shape[1]):
                     cur_series.add(GramsG4Entry(scatters[:,hit]))
-                # If this series can be reconstructed, then add to the output
+                # If this series can be reconstructed, then add to the output. Shame you had to do all that computation just to throw away 99% of it...
                 if (cur_series.reconstructable()):
                     output_mctruth_series[(run,event)] = cur_series
-
         output_keys = list(output_mctruth_series.keys())
         for key in output_keys:
             output_tuple = output_mctruth_series[key].output_tuple()

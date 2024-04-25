@@ -3,6 +3,7 @@
 *.hdf
 *.png
 *.csv
+*.root
 *.safetensors
 config_vars.sh
 *.tar.gz

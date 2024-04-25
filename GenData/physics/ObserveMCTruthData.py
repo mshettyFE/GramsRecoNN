@@ -3,6 +3,7 @@
 import toml
 # Reading ROOT
 import uproot
+from ROOT import TH1F
 # command line parsing
 import argparse
 
@@ -21,7 +22,8 @@ TrackInfo_keys = ('Etot', 'Event', 'PDGCode', 'ParentID', 'ProcessName', 'Run', 
 TrackInfo_keys_map = {k:v for k,v in zip(TrackInfo_keys,range(len(TrackInfo_keys)))}
 
 # Interactions to look out for in data
-valid_interactions = ("Primary", "phot", "compt")
+gamma_ray_process_name = "Primary"
+valid_interactions = ("phot", "compt")
 valid_escape_flags= ("AllIn","Escape")
 
 # rest mass of electron in MeV
@@ -114,13 +116,18 @@ class ScatterSeries:
     def reconstructable(self):
         if(len(self.scatter_series) <3):
             return False
+    # Sort by time to get definite ordering, where we expect photon to be first
+        self.sort()
         global valid_interactions
-        for scatter in self.scatter_series:
+        global gamma_ray_process_name
+        if(self.scatter_series[0].process != gamma_ray_process_name):
+            return False
+        for scatter in self.scatter_series[1:]:
+            # Check if all scatters after first gamma ray are either Compton or Photoabsoption
             if scatter.process not in valid_interactions:
                 return False
-# Check that all interactions (excluding the Primary) are inside the LAr. An interaction inside LAr starts with 1.
-# There are 7 digits in the identifier, so int(scatter.identifier/1000000) will specify what region in the detector the interaction took place in
-        for scatter in self.scatter_series[1:]:
+            # Check that all interactions (excluding the Primary) are inside the LAr. An interaction inside LAr starts with 1.
+            # There are 7 digits in the identifier, so int(scatter.identifier/1000000) will specify what region in the detector the interaction took place in
             if int(scatter.identifier/1000000)!=1:
                 return False
         return True
@@ -143,12 +150,8 @@ class ScatterSeries:
         first_to_second = self.scatter_series[1].position - self.scatter_series[2].position
         truth_angle = np.dot(photon_to_first, first_to_second)/(np.linalg.norm(photon_to_first)*np.linalg.norm(first_to_second))
     # Grab summed deposited energy
-        itter = self.__iter__()
-        next(itter) # Discared first entry since that is the gamma ray
-        summed_deposited_energy  = 0
         global rest_mass_e
-        for event in itter:
-            summed_deposited_energy += (event.energy-rest_mass_e) # Remove electron rest mass 
+        summed_deposited_energy = sum([scatter.energy-rest_mass_e for scatter in self.scatter_series[1:]])
         return {"truth_energy":self.scatter_series[0].energy,
                  "truth_angle":truth_angle, 
                  "escape_type": e_type,
@@ -188,8 +191,8 @@ def ReadRoot(configuration, gramsg4_path):
         for run in unique_run_mask:
             for event in unique_event_mask:
                 event_mask = np.logical_and((data["Run"]==run), ( data["Event"]==event)) # Grab all hits coming from the same initial gamma ray
-                reconstructable_process_check = np.logical_and(event_mask, data["ProcessName"]!="Primary")
-                intermediate_mask = np.logical_and(reconstructable_process_check, data["ParentID"]==1)
+                reconstructable_process_check = np.logical_and(event_mask, data["ProcessName"]!="Primary") # Check that scatters are not a gamma ray
+                intermediate_mask = np.logical_and(reconstructable_process_check, data["ParentID"]==1) # Check that all scatters came immediately from ParentID
                 check_for_reconstructable_mask = np.logical_and(intermediate_mask, data["PDGCode"]==11) # From the hits, get all the non-photon events
                 primary_mask = np.logical_and(event_mask,(data["ProcessName"]=="Primary")) # get the gamma ray for this particular event
                 # get the data for this event
@@ -203,10 +206,9 @@ def ReadRoot(configuration, gramsg4_path):
                 cur_series.add(GramsG4Entry(gamma))
                 for hit in range(scatters.shape[1]):
                     cur_series.add(GramsG4Entry(scatters[:,hit]))
-                # If this series can be reconstructed, then add to the output
+                # If this series can be reconstructed, then add to the output. Shame you had to do all that computation just to throw away 99% of it...
                 if (cur_series.reconstructable()):
                     output_mctruth_series[(run,event)] = cur_series
-
         output_keys = list(output_mctruth_series.keys())
         for key in output_keys:
             output_tuple = output_mctruth_series[key].output_tuple()
@@ -263,17 +265,24 @@ def histogram_compton_energy(scatter_series, out_dir, event_type="compt"):
 
 def scatter_truth(scatter_series, out_dir, y_para_name = "dep_energy"):
     keys = list(scatter_series.keys())
-    truth_energy = []
-    y_val = []
+    truth_energy_all_in = []
+    truth_energy_escape = []
+    y_val_all_in = []
+    y_val_escape = []
     for key in keys:
         scatters = scatter_series[key]
         data = scatters.output_tuple()
-        truth_energy.append(data["truth_energy"])
-        y_val.append(data[y_para_name])
+        
+        if(data["escape_type"] == 0):
+            truth_energy_all_in.append(data["truth_energy"])
+            y_val_all_in.append(data[y_para_name])
+        if(data["escape_type"] == 1):
+            truth_energy_escape.append(data["truth_energy"])
+            y_val_escape.append(data[y_para_name])
     plt.clf()
-    plt.scatter(truth_energy,y_val)
-    plt.plot(truth_energy,truth_energy,color='r')
-    plt.title("Truth versus "+y_para_name)
+    plt.scatter(truth_energy_all_in,y_val_all_in, color='b')
+    plt.scatter(truth_energy_escape,y_val_escape, color='r')
+    plt.title("Truth versus "+y_para_name+" "+str(len(y_val_all_in))+" "+str(len(y_val_escape)))
     plt.xlabel("Truth Energy (MeV)")
     plt.ylabel(y_para_name)
     home = os.getcwd()
@@ -287,6 +296,7 @@ def hist_data(scatter_series, out_dir, y_para_name = "n_scatters", escape_type=N
     title = y_para_name+" Histogram"
     if(escape_type):
         title = title + "_"+ escape_type
+    title = title.replace(" ","_")
     values = []
     for key in keys:
         scatters = scatter_series[key]
@@ -299,13 +309,15 @@ def hist_data(scatter_series, out_dir, y_para_name = "n_scatters", escape_type=N
         else:
             values.append(data[y_para_name])
     plt.clf()
-    plt.hist(values, bins=100, color='skyblue', edgecolor='black')
-    plt.title(title)
-    plt.xlabel(y_para_name)
-    plt.ylabel("Count")
     home = os.getcwd()
     os.chdir(out_dir)
-    plt.savefig(title+"Histogram.png")
+    root_hist = TH1F("hist", title, 100, min(values), max(values))
+    root_hist.GetXaxis().SetTitle(y_para_name)
+    root_hist.GetYaxis().SetTitle("Count")
+    for val in values:
+        root_hist.Fill(val)
+    with  uproot.recreate(title+".root") as file:
+        file["hist"] = root_hist
     os.chdir(home)
     plt.clf()
 
@@ -405,6 +417,7 @@ if __name__ == "__main__":
     input_data, output_data = ReadRoot(GramsConfig, gramsg4_file)
     histogram_compton_energy(input_data,home,"phot")
     histogram_compton_energy(input_data,home,"compt")
+    scatter_truth(input_data,home)
     hist_data(input_data, home)
     hist_data(input_data, home,escape_type="AllIn")
     hist_data(input_data, home,escape_type="Escape")
@@ -413,5 +426,6 @@ if __name__ == "__main__":
     hist_data(input_data, home,escape_type="Escape",y_para_name="truth_energy")
     hist_data(input_data, home,escape_type="AllIn",y_para_name="dep_energy")
     hist_data(input_data, home,escape_type="Escape",y_para_name="dep_energy")
+    hist_data(input_data, home,y_para_name="dep_energy")
     ThreeDLastScatterPlot(input_data, home, escape_type="Escape")
     ThreeDLastScatterPlot(input_data, home, escape_type="AllIn")
