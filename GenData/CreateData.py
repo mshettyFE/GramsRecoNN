@@ -35,8 +35,8 @@ Readout_keys = ["Run", "Event", "TrackID", "PDGCode", "numPhotons", "cerPhotons"
 Readout_keys.sort()
 Readout_keys_map = {k:v for k,v in zip(Readout_keys,range(len(Readout_keys)))}
 # Valid interactions
-valid_interactions = ["Primary", "phot", "compt"]
-
+valid_interactions = ["phot", "compt"]
+gamma_ray_process_name = "Primary"
 
 class Position:
 # Very bare bones R^3 vector. Supports addition, subtraction, L2 norm and dot product, which are the only operations I can about for Scatter Series Reconstruction
@@ -119,7 +119,9 @@ class SeriesType(Enum):
 class ScatterSeries:
 # Stores a list of Entries, and determines if the series is reconstructable with Compton Cone Method
 # series_type can be a part of the set: {"MC","Readout"}
-    def __init__(self,series_type: SeriesType):
+    def __init__(self,run_num:int, event_num:int, series_type: SeriesType):
+        self.run_num = run_num
+        self.event_num = event_num
         self.scatter_series = []
         self.series_type = series_type
     def __repr__(self):
@@ -180,7 +182,8 @@ class ScatterSeries:
         photon_to_first = self.scatter_series[0].position - self.scatter_series[1].position
         first_to_second = self.scatter_series[1].position - self.scatter_series[2].position
         truth_angle = np.dot(photon_to_first, first_to_second)/(np.linalg.norm(photon_to_first)*np.linalg.norm(first_to_second))
-        return (self.scatter_series[0].energy,truth_angle,e_type)
+        out  = (self.scatter_series[0].energy,truth_angle,e_type, self.run_num, self.event_num)
+        return out
 
 def pixellate(xval,yval, xDim, yDim, PixelCountX, PixelCountY):
 # Returns the x and y index on the anode plane for a given xval,yval pair
@@ -232,7 +235,7 @@ def CreateTensor(configuration, input_data, output_data,run):
 # For Final version, will need to increase number of channels to take into account time
     input_labels = np.zeros((len(input_data),1,PixelCountX, PixelCountY) )
 # 1 and 3 stands for a row vector with energy, reconstruction angle, and escape type as columns
-    output_labels = np.zeros((len(input_data), 1, 3))
+    output_labels = np.zeros((len(input_data), 1, 5))
     count = 0
     for series in input_data:
 # Initialize empty anode plane with no depositions
@@ -315,7 +318,7 @@ def ReadoutIndex(label:str):
     out = Readout_keys_map[label]
     return out
 
-def ReadRoot(configuration, gramsg4_path):
+def ReadG4Root(configuration, gramsg4_path):
     output_mctruth_series = {}
     output_energy_angle = {}
     # Open up root file and get TrackInfo TTree
@@ -352,7 +355,7 @@ def ReadRoot(configuration, gramsg4_path):
                 scatters = np.stack(scatters)
                 gamma = np.concatenate(gamma)
                 # Generate the scatter series for this event
-                cur_series = ScatterSeries()
+                cur_series = ScatterSeries(run,event,SeriesType.MCTruth)
                 cur_series.add(GramsG4Entry(gamma))
                 for hit in range(scatters.shape[1]):
                     cur_series.add(GramsG4Entry(scatters[:,hit]))
@@ -402,7 +405,7 @@ def ReadReadoutSim(GramsConfig,readout_file,gramsg4_output_series):
                 # package the data into a single numpy array
                 scatters = np.stack(scatters)
                 # Generate the scatter series for this event
-                cur_series = ScatterSeries(SeriesType.Readout)
+                cur_series = ScatterSeries(run, event, SeriesType.Readout)
                 for hit in range(scatters.shape[1]):
                     hit  = GramsReadoutEntry(scatters[:,hit])
                     cur_series.add(hit)
@@ -422,6 +425,7 @@ if __name__ == "__main__":
     sanity_checker.config_file["GenData"]["Debug"]=  {"value": args.Debug,  "constraint":"Boolean"}
     sanity_checker.config_file["GenData"]["MCTruth"]=  {"value": args.MCTruth,  "constraint":"Boolean"}
     # Make sure that config file has sane parameters that satisfy the constraints
+    print(sanity_checker.config_file)
     try:
         sanity_checker.validate()
     except Exception as e:
