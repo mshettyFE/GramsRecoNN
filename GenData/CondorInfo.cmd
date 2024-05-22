@@ -1,5 +1,5 @@
-executable     = /nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GenData/CondorSetup.sh
-transfer_input_files = /nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GenData/CreateData.py,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/TomlSanityCheck.py,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GramsSimWork.tar.gz,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GenData/Config.toml,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/gdml,/nevis/milne/files/ms6556/BleekerShareBuild/NNGramsReco/GenData/DataGen.sh
+executable     = /nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/GenData/CondorSetup.sh
+transfer_input_files = /nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/GenData/CreateData.py,/nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/TomlSanityCheck.py,/nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/GramsSimWork.tar.gz,/nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/GenData/Config.toml,/nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/gdml,/nevis/milne/files/ms6556/RiversideSensitivityShare/NNGramsReco/GenData/DataGen.sh
 
 
 arguments = $(Process)
@@ -14,4 +14,4 @@ requirements =( ( Arch == "X86_64" ) && ( machine != "amsterdam.nevis.columbia.e
 output         = temp-$(Process).out
 error          = temp-$(Process).err
 log            = temp-$(Process).log
-initialdir=/nevis/milne/files/ms6556/RiversideData/GramsMLRecoData/Train
+initialdir=/nevis/milne/files/ms6556/RiversideData/GramsMLRecoData/Validation

@@ -6,6 +6,7 @@ from torch import no_grad, cuda, backends
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 # Standard scientific python packages
+from  matplotlib import use as renderer
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -30,6 +31,9 @@ import argparse
 # Include path immediately above to import TomlSanityCheck
 sys.path.append('..')
 from  TomlSanityCheck import TomlSanityCheck
+
+# Since we never display any plots, only save to disk, we can change backend renderer of matplotlib to allow script to run in background
+renderer('Agg')
 
 class SimpleNN(nn.Module):
 # Bare-bones Neural Network Architecture. Don't actually use this for the real network. Just for testing pipeline
@@ -74,7 +78,6 @@ class SimpleCNN(nn.Module):
                 nn.MaxPool2d(3,3),
     # Classification
                 nn.Flatten(),
-                nn.Dropout(),
                 nn.Linear(64, 1),
                 nn.Sigmoid()
             )
@@ -155,7 +158,6 @@ class History:
                 x = np.array(self.loss_epoch_count)
                 train = np.array(self.training_loss_hist)
                 val = np.array(self.validation_loss_hist)
-                plt
                 plt.scatter(x, train)
                 plt.scatter(x, val, color="red")
                 plt.xlabel("Epochs")
@@ -246,7 +248,7 @@ class Trainer:
         self.val_data = DataLoader(val_dataset,batch_size=self.args.batch_size)
         self.test_data = DataLoader(test_dataset,batch_size=self.args.batch_size)
         self.training_history = History()
-    
+
     def predict_all(self, which_data="test"):
 # Given the current state of the model, do prediction on all of the data in a given set (test or validation)
         data = None
